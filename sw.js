@@ -1,4 +1,4 @@
-const CACHE_NAME = 'land-dev-v2';
+const CACHE_NAME = 'land-dev-v3';
 
 // 只預先快取必要的本地核心檔案（不包含大型 CDN 函式庫）
 // CDN 函式庫使用「網路優先，快取備用」策略，避免安裝時等待大量外部下載
@@ -15,6 +15,9 @@ const LOCAL_ASSETS = [
   './facade-finder/style.css',
   './facade-finder/app.js',
 ];
+
+// 第一次播放後會自動快取到本地，之後開啟直接從裝置讀取（秒速）
+const VIDEO_URL = './風格/開場動畫/第二版.mp4';
 
 // 安裝事件 - 只快取本地核心檔案，立即完成不等 CDN
 self.addEventListener('install', event => {
@@ -76,7 +79,23 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 本地核心資源：快取優先（Stale-While-Revalidate），回應最快
+  // 開場動畫影片：快取優先（第一次從網路下載並存入本地，之後秒速）
+  if (url.includes('%E7%AC%AC%E4%BA%8C%E7%89%88.mp4') || url.includes('第二版.mp4') || url.endsWith('.mp4')) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached; // 已快取：直接本地讀取，速度極快
+        // 第一次：從網路下載並自動存入快取
+        return fetch(event.request).then(response => {
+          if (response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then(cached => {
       const networkFetch = fetch(event.request).then(response => {

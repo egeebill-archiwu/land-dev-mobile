@@ -1867,41 +1867,98 @@ function dismissSplash() {
     
     const video = document.getElementById('splashVideo');
     if (video) {
-        try {
-            video.pause();
-        } catch (e) {}
+        try { video.pause(); } catch (e) {}
     }
     
-    splash.classList.add('opacity-0');
+    // Clear the auto-skip timer if splash was dismissed early
+    if (window._splashAutoSkipTimer) {
+        clearTimeout(window._splashAutoSkipTimer);
+        window._splashAutoSkipTimer = null;
+    }
+    
+    splash.style.opacity = '0';
     splash.style.pointerEvents = 'none';
     
+    // Remember that the splash was shown today, so we skip it on next open
     try {
-        sessionStorage.setItem('splash_dismissed', 'true');
+        const today = new Date().toDateString();
+        localStorage.setItem('splash_last_shown', today);
     } catch (e) {}
     
     setTimeout(() => {
-        splash.classList.add('hidden');
+        splash.style.display = 'none';
     }, 700);
 }
+
+// Called on page load: skip splash if already shown today, or set up auto-skip timer
+(function initSplash() {
+    const splash = document.getElementById('app-startup-splash');
+    if (!splash) return;
+
+    // Skip splash if already shown today (makes repeat opens instant)
+    try {
+        const today = new Date().toDateString();
+        const lastShown = localStorage.getItem('splash_last_shown');
+        if (lastShown === today) {
+            splash.style.display = 'none';
+            return;
+        }
+    } catch (e) {}
+
+    // Auto-skip after 12 seconds — prevents getting stuck if video fails to load
+    window._splashAutoSkipTimer = setTimeout(() => {
+        console.log('[Splash] Auto-skip triggered after timeout');
+        dismissSplash();
+    }, 12000);
+
+    // Unmute video once it starts playing (muted required for autoplay policy)
+    const video = document.getElementById('splashVideo');
+    if (video) {
+        video.addEventListener('playing', () => {
+            // Keep muted as per mobile autoplay policy; users can hear on replay
+        });
+        // If video fails to load at all, skip immediately
+        video.addEventListener('error', () => {
+            console.warn('[Splash] Video failed to load, auto-skipping');
+            dismissSplash();
+        });
+    }
+})();
 
 function replaySplash() {
     const splash = document.getElementById('app-startup-splash');
     if (!splash) return;
     
+    // Clear the "shown today" flag so video plays on next open too
+    try { localStorage.removeItem('splash_last_shown'); } catch (e) {}
+    
     splash.style.display = 'flex';
-    splash.classList.remove('hidden', 'opacity-0');
+    splash.style.opacity = '1';
     splash.style.pointerEvents = 'auto';
     
+    const loader = document.getElementById('splash-loader');
+    if (loader) loader.style.display = 'flex';
+
     const video = document.getElementById('splashVideo');
     if (video) {
         try {
             video.currentTime = 0;
-            video.muted = false;
-            video.play();
+            video.muted = false; // Allow sound on manual replay
+            const playPromise = video.play();
+            if (playPromise) {
+                playPromise.catch(() => {
+                    video.muted = true; // Fallback to muted if browser blocks
+                    video.play().catch(e => console.error('Failed to replay video:', e));
+                });
+            }
         } catch (e) {
             console.error('Failed to replay video:', e);
         }
     }
+    
+    // Re-arm the auto-skip timer for replay
+    if (window._splashAutoSkipTimer) clearTimeout(window._splashAutoSkipTimer);
+    window._splashAutoSkipTimer = setTimeout(dismissSplash, 12000);
 }
 
 function addFarItem(type, defaultVal, defaultPct) {

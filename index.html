@@ -34,18 +34,29 @@
             });
         }
     </script>
+    <!-- 預先告知瀏覽器盡早開始下載開場動畫，減少視覺空白期 -->
+    <link rel="preload" as="video" href="風格/開場動畫/第二版.mp4" type="video/mp4">
 </head>
 <body>
 
 <!-- 全螢幕開場動畫遮罩 -->
-<div id="app-startup-splash" class="fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center transition-opacity duration-700 ease-in-out">
+<div id="app-startup-splash" class="fixed inset-0 z-[99999] bg-black flex items-center justify-center transition-opacity duration-700 ease-in-out">
     <div class="relative w-full max-w-[430px] h-full flex items-center justify-center bg-black overflow-hidden shadow-2xl">
-        <video id="splashVideo" class="w-full h-full object-contain" autoplay playsinline onended="dismissSplash()">
+        <!-- 緩衝載入指示器（影片開始播放前顯示）-->
+        <div id="splash-loader" class="absolute inset-0 flex flex-col items-center justify-center z-10">
+            <div style="width:48px;height:48px;border:3px solid rgba(255,255,255,0.15);border-top-color:#60a5fa;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+            <p style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:12px;letter-spacing:2px;">LOADING</p>
+        </div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+        <video id="splashVideo" class="w-full h-full object-contain" autoplay muted playsinline preload="auto"
+            onended="dismissSplash()"
+            oncanplay="document.getElementById('splash-loader').style.display='none'"
+            onplaying="document.getElementById('splash-loader').style.display='none'">
             <source src="風格/開場動畫/第二版.mp4" type="video/mp4">
-            您的瀏覽器不支援 MP4 視訊播放。
         </video>
-        <!-- SKIP 按鈕 -->
-        <button type="button" onclick="dismissSplash()" class="absolute bottom-8 right-6 px-5 py-2.5 bg-black/50 hover:bg-black/70 border border-white/20 text-white font-black text-xs rounded-full backdrop-blur-md transition-all active:scale-95 shadow-lg flex items-center gap-1.5 z-[100000]">
+        <!-- SKIP 按鈕（立即顯示，無需等待）-->
+        <button type="button" onclick="dismissSplash()" id="splash-skip-btn"
+            class="absolute bottom-8 right-6 px-5 py-2.5 bg-black/50 hover:bg-black/70 border border-white/20 text-white font-black text-xs rounded-full backdrop-blur-md transition-all active:scale-95 shadow-lg flex items-center gap-1.5 z-[100000]">
             <span>SKIP</span>
             <span class="text-[10px] opacity-70">➔</span>
         </button>
