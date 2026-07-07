@@ -56,7 +56,11 @@ body::before {
 }
 
 /* App shell */
-#app-header { flex-shrink: 0; z-index: 50; }
+#app-header {
+    flex-shrink: 0; z-index: 50;
+    /* iPhone notch/Dynamic Island: push background color behind status bar */
+    padding-top: env(safe-area-inset-top, 0px);
+}
 #app-content {
     flex: 1; overflow-y: auto; overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
@@ -64,7 +68,8 @@ body::before {
 }
 #app-nav {
     flex-shrink: 0; z-index: 50;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* iPhone home indicator: ensure labels are fully visible above it */
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
 }
 
 /* Glass */
@@ -169,7 +174,7 @@ input[type=range] { accent-color: #3b82f6; }
 #maps-modal { position:fixed; inset:0; z-index:300; display:none; align-items:flex-end; justify-content:center; }
 #maps-modal.open { display:flex; }
 #maps-modal-bg { position:absolute; inset:0; background:rgba(0,0,0,0.72); backdrop-filter:blur(4px); }
-#maps-modal-sheet { position:relative; width:100%; max-width:430px; background:#111827; border-top:1px solid #1f2937; border-radius:1.5rem 1.5rem 0 0; padding:1.25rem 1.25rem calc(env(safe-area-inset-bottom,0px) + 1.25rem); box-shadow:0 -20px 60px rgba(0,0,0,0.6); height: 90vh; max-height: 90vh; display: flex; flex-direction: column; transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+#maps-modal-sheet { position:relative; width:100%; max-width:430px; background:#111827; border-top:1px solid #1f2937; border-radius:1.5rem 1.5rem 0 0; padding:1.25rem 1.25rem 1.25rem; box-shadow:0 -20px 60px rgba(0,0,0,0.6); height: 90vh; max-height: 90vh; display: flex; flex-direction: column; transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem); }
 #maps-modal-sheet.maximized { height: 100vh; max-height: 100vh; border-radius: 0; }
 
 /* ── Cadastral Modal ── */

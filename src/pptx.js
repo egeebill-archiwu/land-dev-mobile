@@ -458,7 +458,24 @@ async function triggerPDFGeneration() {
             })()
         };
 
-        const host = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8000' : window.location.origin;
+        // Detect if running on GitHub Pages or any static hosting (no backend available)
+        const isLocalhost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+        const isFileProtocol = window.location.protocol === 'file:';
+        const hasLocalBackend = isLocalhost || isFileProtocol;
+
+        if (!hasLocalBackend) {
+            // Running as a PWA / GitHub Pages — no local backend available
+            throw new Error(
+                '此功能需要在您的電腦上啟動後台服務才能使用。\n\n' +
+                '📋 操作說明：\n' +
+                '請回到您的電腦，在專案資料夾中執行：\n' +
+                'python -m uvicorn backend.main:app\n\n' +
+                '啟動後請用電腦版瀏覽器開啟系統，即可正常匯出 PDF 簡報。\n\n' +
+                '（手機版 PWA 目前不支援 PDF 匯出功能）'
+            );
+        }
+
+        const host = isFileProtocol ? 'http://127.0.0.1:8000' : window.location.origin;
         const response = await fetch(`${host}/api/generate-pdf`, {
             method: 'POST',
             headers: {
