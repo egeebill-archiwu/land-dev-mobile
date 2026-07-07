@@ -1,0 +1,25 @@
+# Python backend temporary files
+backend/__pycache__/
+__pycache__/
+*.pyc
+
+# Local backup files and scratch directories
+*.bak
+temp_*.js
+scratch/
+scratch_*.py
+scratch_*.txt
+*.log
+
+# Heavy or document files
+PPT/
+測試/
+*.xlsx
+*.xls
+*.pdf
+*.mp4
+風格/開場動畫/*.mp4
+
+# OS generated files
+.DS_Store
+Thumbs.db

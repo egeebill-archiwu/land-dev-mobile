@@ -1,0 +1,18 @@
+{
+  "name": "土地開發試算與外觀搜尋系統",
+  "short_name": "土開試算",
+  "description": "提供房地產土地開發試算、合建分售財務分析與外觀立面靈感搜尋工具。",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/602/602182.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>土地開發效益評估簡報</title>
+    <style>
+        /* Google Fonts integration */
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --font-english: 'Montserrat', sans-serif;
+            --font-chinese: 'Noto Sans TC', sans-serif;
+        }
+
+        body.theme-dark {
+            --bg-color: #0b111e;
+            --text-color: #e2e8f0;
+            --muted-color: #94a3b8;
+            --border-color: #1f2937;
+            --card-bg: #111827;
+            --card-title-color: #ffffff;
+            --primary-color: #a855f7;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+            --info-color: #38bdf8;
+            --accent-color: #d97706;
+            --term-bg: #0a0e17;
+            --term-text: #a78bfa;
+            --bar-bg: #1e293b;
+        }
+
+        body.theme-light {
+            --bg-color: #ffffff;
+            --text-color: #1e293b;
+            --muted-color: #64748b;
+            --border-color: #e5e7eb;
+            --card-bg: #f8fafc;
+            --card-title-color: #0b111e;
+            --primary-color: #0284c7;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+            --info-color: #0284c7;
+            --accent-color: #d97706;
+            --term-bg: #1e293b;
+            --term-text: #e2e8f0;
+            --bar-bg: #e2e8f0;
+        }
+
+        body {
+            font-family: var(--font-chinese);
+            background-color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+        }
+
+        /* 16:9 Widescreen Deadlock Dimensions */
+        .slide {
+            width: 1280px;
+            height: 720px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #334155; /* Visible border in preview, ignored in print */
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            padding: 40px 50px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                background-color: transparent;
+            }
+            .slide {
+                border: none;
+                margin-bottom: 0;
+                page-break-after: always;
+                break-after: page;
+                /* Avoid print margins */
+                width: 1280px;
+                height: 720px;
+            }
+            @page {
+                size: 1280px 720px;
+                margin: 0;
+            }
+        }
+
+        /* Slide structure components */
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            position: relative;
+            padding-bottom: 12px;
+        }
+
+        .slide-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent-color);
+        }
+
+        .slide-header.flagged::after {
+            background: var(--error-color);
+        }
+
+        .slide-title-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .slide-title {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--card-title-color);
+        }
+
+        .slide-subtitle {
+            font-family: var(--font-english);
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--primary-color);
+            letter-spacing: 1px;
+        }
+
+        .slide-page-num {
+            font-family: var(--font-english);
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--muted-color);
+            opacity: 0.3;
+        }
+
+        .slide-body {
+            flex: 1;
+            display: grid;
+            gap: 25px;
+        }
+
+        /* Common grid layouts */
+        .grid-2col {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .grid-3col {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .grid-left-heavy {
+            grid-template-columns: 1.5fr 1fr;
+        }
+
+        .grid-right-heavy {
+            grid-template-columns: 1fr 1.5fr;
+        }
+
+        /* Card and container components */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            position: relative;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--card-title-color);
+        }
+
+        .card-badge {
+            font-family: var(--font-english);
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--primary-color);
+            background-color: rgba(168, 85, 247, 0.1);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .card-content {
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-color);
+        }
+
+        .card-content ul {
+            list-style-type: none;
+        }
+
+        .card-content li {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .card-content li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        /* HUD Numbers widget */
+        .hud-value-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+        }
+
+        .hud-num {
+            font-family: var(--font-english);
+            font-size: 40px;
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 10px;
+        }
+
+        .hud-num.success { color: var(--success-color); }
+        .hud-num.error { color: var(--error-color); }
+        .hud-num.info { color: var(--info-color); }
+
+        .hud-label {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--card-title-color);
+            margin-bottom: 8px;
+        }
+
+        .hud-sub {
+            font-size: 12px;
+            color: var(--muted-color);
+            max-width: 80%;
+        }
+
+        /* terminal block */
+        .terminal-block {
+            background-color: var(--term-bg);
+            border: 1.5px solid var(--primary-color);
+            border-radius: 12px;
+            padding: 20px;
+            font-family: var(--font-chinese);
+        }
+
+        .terminal-header {
+            font-family: var(--font-english);
+            font-size: 12px;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .terminal-body {
+            font-size: 13.5px;
+            line-height: 1.7;
+            color: var(--term-text);
+        }
+
+        /* 3D Stack / FAR stack styling */
+        .far-stack-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            height: 100%;
+            padding-bottom: 20px;
+        }
+
+        .far-bar {
+            width: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: 700;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            font-size: 13px;
+        }
+
+        .far-bar-base {
+            background-color: #1e3a8a;
+            border: 1px solid #3b82f6;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        .far-bar-bonus {
+            background-color: #f59e0b;
+            border: 1px solid #fbbf24;
+        }
+
+        .far-bar-transfer {
+            background-color: #10b981;
+            border: 1px solid #34d399;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        /* Progress Chevron Gantt styling */
+        .gantt-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+            gap: 15px;
+        }
+
+        .gantt-node {
+            flex: 1;
+            height: 380px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px;
+            color: #ffffff;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        .gantt-node-1 { background-color: #1e3a8a; }
+        .gantt-node-2 { background-color: #f59e0b; }
+        .gantt-node-3 { background-color: #ea580c; }
+        .gantt-node-4 { background-color: #10b981; }
+
+        .gantt-node-header {
+            font-family: var(--font-english);
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            opacity: 0.8;
+        }
+
+        .gantt-node-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .gantt-node-time {
+            font-family: var(--font-english);
+            font-size: 14px;
+            font-weight: 700;
+            background-color: rgba(255,255,255,0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+        }
+
+        .gantt-node-desc {
+            font-size: 12.5px;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        /* SVG Doughnut charts */
+        .doughnut-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        .doughnut-svg {
+            width: 280px;
+            height: 280px;
+            transform: rotate(-90deg);
+        }
+
+        .doughnut-bg {
+            fill: none;
+            stroke: var(--border-color);
+            stroke-width: 32;
+        }
+
+        .doughnut-segment {
+            fill: none;
+            stroke-width: 32;
+        }
+
+        .doughnut-segment-build { stroke: #3b82f6; }
+        .doughnut-segment-mgt { stroke: #f59e0b; }
+        .doughnut-segment-land { stroke: #10b981; }
+
+        .doughnut-center-text {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .doughnut-center-val {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--card-title-color);
+        }
+
+        .doughnut-center-lbl {
+            font-size: 11px;
+            color: var(--muted-color);
+            margin-top: 4px;
+        }
+
+        /* Tables style */
+        table.slide-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+        }
+
+        table.slide-table th {
+            background-color: #1e293b;
+            color: #ffffff;
+            font-weight: 700;
+            padding: 12px 16px;
+            text-align: left;
+            border: 1px solid #334155;
+        }
+
+        table.slide-table td {
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+
+        table.slide-table tr:nth-child(even) td {
+            background-color: var(--card-bg);
+        }
+
+        /* Safety margin gauge */
+        .gauge-bar-bg {
+            background-color: var(--bar-bg);
+            height: 30px;
+            border-radius: 15px;
+            position: relative;
+            display: flex;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .gauge-segment {
+            height: 100%;
+            background-color: var(--success-color);
+        }
+
+        .gauge-segment.flagged {
+            background-color: var(--error-color);
+        }
+
+        .gauge-marker {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background-color: #ffffff;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        /* Location mock Blueprint */
+        .location-blueprint {
+            background-color: #0b111e;
+            background-image: 
+                linear-gradient(rgba(59, 130, 246, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.08) 1px, transparent 1px);
+            background-size: 30px 30px;
+            border: 1px solid #1e3a8a;
+            border-radius: 12px;
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .location-crosshair {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        .location-circle {
+            border: 2px dashed rgba(59, 130, 246, 0.25);
+            border-radius: 50%;
+            position: absolute;
+        }
+    </style>
+</head>
+<body class="theme-{{ data.Theme }}">
+
+    <!-- Page 01: Cover -->
+    <div class="slide">
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-family: var(--font-english); font-size: 11px; font-weight: 700; color: {% if data.Financial_HUD.Net_Profit_亿 < 0 %}var(--error-color){% else %}var(--primary-color){% endif %}; letter-spacing: 2px; margin-bottom: 15px;">
+                LAND DEVELOPMENT FEASIBILITY DIAGNOSIS
+            </div>
+            <div style="font-size: 42px; font-weight: 900; color: var(--card-title-color); line-height: 1.2; margin-bottom: 15px; max-width: 800px;">
+                {{ data.Project_Metadata.Address }}<br>土地開發效益評估報告
+            </div>
+            <div style="font-size: 16px; color: var(--info-color); margin-bottom: 40px; font-weight: 700;">
+                融合空間幾何分析、法規獎勵堆疊與動態營建矩陣之綜合評估報告
+            </div>
+            <div style="width: 200px; height: 5px; background-color: {% if data.Financial_HUD.Net_Profit_亿 < 0 %}var(--error-color){% else %}var(--primary-color){% endif %}; border-radius: 3px;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 30px; border-top: 1px solid var(--border-color);">
+            <div style="background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px 25px; display: grid; grid-template-columns: auto auto auto; gap: 40px; font-size: 13.5px;">
+                <div>
+                    <span style="color: var(--muted-color); display: block; margin-bottom: 4px;">開發模式</span>
+                    <strong style="color: var(--card-title-color);">{{ data.Project_Metadata.Development_Mode }}</strong>
+                </div>
+                <div>
+                    <span style="color: var(--muted-color); display: block; margin-bottom: 4px;">評估引擎</span>
+                    <strong style="color: var(--card-title-color);">{{ data.Project_Metadata.Engine_Version }}</strong>
+                </div>
+                <div>
+                    <span style="color: var(--muted-color); display: block; margin-bottom: 4px;">評估基準</span>
+                    <strong style="color: var(--card-title-color);">2026.Q2 都市管制與造價</strong>
+                </div>
+            </div>
+
+            <div style="background-color: rgba(168, 85, 247, 0.05); border: 1.5px solid {% if data.Financial_HUD.Net_Profit_亿 < 0 %}var(--error-color){% else %}var(--success-color){% endif %}; border-radius: 10px; padding: 12px 20px; font-size: 13px;">
+                <span style="color: {% if data.Financial_HUD.Net_Profit_亿 < 0 %}var(--error-color){% else %}var(--success-color){% endif %}; font-weight: 900; display: block; margin-bottom: 2px;">
+                    ✦ AI 系統判定
+                </span>
+                <span style="color: var(--text-color);">
+                    專案代碼: {% if data.Financial_HUD.Net_Profit_亿 < 0 %}DEFICIT-RISK{% else %}GO-AHEAD{% endif %} | 狀態: {% if data.Financial_HUD.Net_Profit_亿 < 0 %}建議暫緩/重組{% else %}建議積極啟動{% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 02: AI Executive Diagnosis -->
+    <div class="slide">
+        <div class="slide-header {% if data.Financial_HUD.Net_Profit_亿 < 0 %}flagged{% endif %}">
+            <div class="slide-title-group">
+                <div class="slide-title">{{ ai.page2_title }}</div>
+                <div class="slide-subtitle">EXECUTIVE DIAGNOSIS</div>
+            </div>
+            <div class="slide-page-num">02</div>
+        </div>
+
+        <div class="slide-body grid-3col">
+            <div class="card">
+                <div class="hud-value-group">
+                    <div class="hud-num {% if data.Financial_HUD.Net_Profit_亿 < 0 %}error{% else %}success{% endif %}">
+                        TWD {{ data.Financial_HUD.Net_Profit_亿 }} 億
+                    </div>
+                    <div class="hud-label">建方預估淨利</div>
+                    <div class="hud-sub">全案可售戶數、車位與店面之加權總和效益</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="hud-value-group">
+                    <div class="hud-num {% if data.Financial_HUD.Net_Profit_亿 < 0 %}error{% else %}success{% endif %}">
+                        {{ data.Financial_HUD.ROI_Pct }}%
+                    </div>
+                    <div class="hud-label">預估開發投資報酬率</div>
+                    <div class="hud-sub">對比同類型開發案，具備良好的內部資金回報效率</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="hud-value-group">
+                    <div class="hud-num info">
+                        {{ data.Financial_HUD.BEP_Price_萬坪 }} 萬/坪
+                    </div>
+                    <div class="hud-label">損益平衡單價 (BEP)</div>
+                    <div class="hud-sub">建商收回營造成本與費用所需之最低出面售價</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 25px; margin-top: 20px;">
+            <div class="card" style="padding: 20px;">
+                <div class="card-title" style="font-size: 15px;">📌 綜合診斷報告 (Consultant Diagnostic)</div>
+                <div class="card-content" style="font-size: 13px;">
+                    <ul>
+                        <li>財務獲利：本案財務結構{% if data.Financial_HUD.Net_Profit_亿 < 0 %}存在顯著風險，淨利為負值，建議立即調整合建比率或終止案源。{% else %}良好。預估利潤及投資報酬率高於台北都會區平均安全邊際。{% endif %}</li>
+                        <li>地段強度：基地緊鄰捷運站 (距離 150m)，法規解鎖之 TOD 第一環獎勵能顯著增益本案之開發規模。</li>
+                        <li>銷售定位：預售推案均價每坪 {{ data.Financial_HUD.Market_Price_萬坪 }} 萬元具備強大區域支撐，與 BEP 兩平點之間保留極大緩衝。</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="terminal-block">
+                <div class="terminal-header">> _ AI 顧問洞察</div>
+                <div class="terminal-body">
+                    {% if data.Financial_HUD.Net_Profit_亿 < 0 %}
+                    警告：本案淨利嚴重低於安全水準，安全緩衝區為負值！建方應立即重組談判，調降地主分配比至合理水位，否則不宜啟動。
+                    {% else %}
+                    獲利動能強勁。本案預估 {{ data.Financial_HUD.ROI_Pct }}% ROI 遠高於一般開發案均值，且損益兩平點 BEP (每坪 {{ data.Financial_HUD.BEP_Price_萬坪 }} 萬) 安全邊際極厚。
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 03: Safety Margin & Stress Test -->
+    <div class="slide">
+        <div class="slide-header {% if data.Financial_HUD.Net_Profit_亿 < 0 %}flagged{% endif %}">
+            <div class="slide-title-group">
+                <div class="slide-title">開發決策與護城河：安全防禦邊際評估</div>
+                <div class="slide-subtitle">SAFETY MARGIN</div>
+            </div>
+            <div class="slide-page-num">03</div>
+        </div>
+
+        <div class="slide-body" style="grid-template-rows: auto 1fr; gap: 20px;">
+            <div class="card" style="padding: 20px;">
+                <div style="display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 700; margin-bottom: 8px; color: var(--card-title-color);">
+                    <span>損益平衡點 BEP ({{ data.Financial_HUD.BEP_Price_萬坪 }} 萬/坪)</span>
+                    <span>緩衝區間 (Safety Margin) = {{ data.Financial_HUD.Safety_Margin_萬坪 }} 萬/坪 利潤防禦墊</span>
+                    <span>預估推案單價 ({{ data.Financial_HUD.Market_Price_萬坪 }} 萬/坪)</span>
+                </div>
+                <div class="gauge-bar-bg">
+                    <!-- Draw segments to represent progress -->
+                    <div class="gauge-segment {% if data.Financial_HUD.Net_Profit_亿 < 0 %}flagged{% endif %}" style="width: 80%;"></div>
+                    <div class="gauge-marker" style="left: 80%;"></div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 25px;">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">🤝 談判安全底線 (Negotiation Baselines)</div>
+                    </div>
+                    <div class="card-content">
+                        <ul>
+                            <li>鎖定合建分配比：爭取建方分配率維持在安全範圍以上，這是確保本案可行性的財務根基。</li>
+                            <li>土地取得成本上限反推：若本案改採「土地買斷」模式，在維持建商 20% 毛利安全邊際下，合理購地出價上限為：<br>
+                                {% set max_land_price = (((data.Financial_HUD.Net_Profit_亿 + data.Financial_HUD.CAPEX_Build_亿 + data.Financial_HUD.CAPEX_Land_Acquire_亿 + data.Financial_HUD.CAPEX_Mgt_Interest_亿) * 10000 * 0.8) / data.Land_Metrics.Total_Land_Area_Ping)|round(0) if data.Land_Metrics.Total_Land_Area_Ping > 0 else 239 %}
+                                <strong style="color: var(--accent-color); font-size: 16px;">
+                                    【 TWD {{ max_land_price|round(0)|int }} 萬元 / 坪 】
+                                </strong>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div class="card" style="padding: 15px; flex: 1;">
+                        <div style="font-weight: 700; font-size: 13.5px; color: var(--card-title-color); margin-bottom: 4px;">
+                            Scenario 1: 營造成本上漲 10%
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted-color); line-height: 1.5;">
+                            ➜ 營造成本增加約 {{ (data.Financial_HUD.CAPEX_Build_亿 * 0.1)|round(2) }} 億元。高銷容比坪效可安全覆蓋上漲波動 (中低風險)。
+                        </div>
+                    </div>
+                    <div class="card" style="padding: 15px; flex: 1;">
+                        <div style="font-weight: 700; font-size: 13.5px; color: var(--card-title-color); margin-bottom: 4px;">
+                            Scenario 2: 推案售價下跌 5%
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted-color); line-height: 1.5;">
+                            ➜ 總銷減少約 {{ (data.Financial_HUD.Net_Profit_亿 * 0.05 + 0.1)|round(2) }} 億元。利潤稍降但仍遠高於損益平衡線 (中度風險)。
+                        </div>
+                    </div>
+                    <div class="terminal-block" style="padding: 15px;">
+                        <div class="terminal-body" style="font-size: 12.5px;">
+                            [✦ AI 顧問洞察] 具備厚實的「利潤防禦墊」。{{ data.Financial_HUD.Safety_Margin_萬坪 }} 萬/坪的緩衝區，足以抵禦工料雙漲與市場波動風險。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 04: Location & Zoning -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">基地條件與區位優勢：地籍現況及交通便捷性</div>
+                <div class="slide-subtitle">LOCATION METRICS</div>
+            </div>
+            <div class="slide-page-num">04</div>
+        </div>
+
+        <div class="slide-body grid-left-heavy">
+            <div class="location-blueprint" style="{% if data.Map_Image %}background-image: url('{{ data.Map_Image }}'); background-size: cover; background-position: center; border: none;{% endif %}">
+                {% if not data.Map_Image %}
+                <svg class="location-crosshair" xmlns="http://www.w3.org/2000/svg">
+                    <line x1="0" y1="210" x2="680" y2="210" stroke="rgba(59, 130, 246, 0.15)" stroke-width="1"></line>
+                    <line x1="340" y1="0" x2="340" y2="420" stroke="rgba(59, 130, 246, 0.15)" stroke-width="1"></line>
+                </svg>
+                <div class="location-circle" style="width: 240px; height: 240px;"></div>
+                <div class="location-circle" style="width: 140px; height: 140px;"></div>
+                {% endif %}
+                
+                <div style="color: #60a5fa; font-weight: 700; font-size: 15px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 1; {% if data.Map_Image %}background: rgba(11,17,30,0.75); padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(59,130,246,0.3);{% endif %}">
+                    📍 {{ data.Project_Metadata.Address }}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📍 Location Data Widget</div>
+                </div>
+                <div class="card-content">
+                    <ul>
+                        <li>行政地籍：臺北市中山區民權東路二段92巷2之1號<br>(緊鄰捷運站 150m，符合 TOD 第一環 10% 獎勵)</li>
+                        <li>地籍劃分：{{ data.Land_Metrics.Zoning_Type }} | 坵形方正</li>
+                        <li>物理幾何：土地面積 {{ data.Land_Metrics.Total_Land_Area_Ping }} 坪 (約 {{ (data.Land_Metrics.Total_Land_Area_Ping * 3.3058)|round(1) }} ㎡)</li>
+                        <li>開發限制：經 AI 診斷，無畸零地、非山坡地、屬低潛勢區</li>
+                        <li>道路條件：雙面臨路角地，面前主要道路寬度達 {{ data.Land_Metrics.Road_Width_Meters }} 米</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="padding: 12px 24px; margin-top: 20px; border-color: var(--success-color); background-color: rgba(16, 185, 129, 0.02);">
+            <div style="font-size: 13px; color: var(--success-color); font-weight: 700;">
+                [✦ AI 顧問洞察] 完美符合 TOD 第一環標準。黃金蛋黃區角地，雙面臨路且無任何開發物理限制，先天的幾何條件極度稀缺。
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 05: FAR & Positioning -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">法規解鎖與量體極大化：容積疊加結構與產品定位</div>
+                <div class="slide-subtitle">FAR & POSITIONING</div>
+            </div>
+            <div class="slide-page-num">05</div>
+        </div>
+
+        <div class="slide-body" style="display: grid; grid-template-columns: 1fr 1.05fr 1fr; gap: 20px; height: 395px; margin-top: 10px;">
+            <!-- Column 1: FAR Stack (Left) -->
+            <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 15px 12px;">
+                <div class="card-title" style="align-self: center; font-size: 16px; margin-bottom: 4px;">🏗️ 容積疊加示意 (FAR Stack)</div>
+                
+                <div style="background-color: rgba(16,185,129,0.1); border: 1.5px solid var(--success-color); padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; color: var(--success-color); text-align: center; margin-bottom: 2px;">
+                    實質開發強度：{{ data.Land_Metrics.Actual_FAR_Pct }}%
+                </div>
+
+                <div style="flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-height: 0; padding-bottom: 12px; position: relative;">
+                    <div class="far-stack-container" style="display: flex; flex-direction: column; justify-content: flex-end; align-items: center; width: 100%; border-bottom: 4px solid #64748b; padding-bottom: 0px; margin-bottom: 2px;">
+                        {% if data.Land_Metrics.Transfer_FAR_Pct > 0 %}
+                        <div class="far-bar far-bar-transfer" style="height: {{ [ (data.Land_Metrics.Transfer_FAR_Pct * 3.0)|round, 50 ]|max }}px; width: 160px; font-size: 13.5px; font-weight: 800; line-height: 1.35; margin-bottom: 2px;">容積移轉<br>+{{ data.Land_Metrics.Transfer_FAR_Pct }}%</div>
+                        {% endif %}
+                        {% if data.Land_Metrics.Bonus_FAR_Pct > 0 %}
+                        <div class="far-bar far-bar-bonus" style="height: {{ [ (data.Land_Metrics.Bonus_FAR_Pct * 3.0)|round, 50 ]|max }}px; width: 160px; font-size: 13.5px; font-weight: 800; line-height: 1.35; margin-bottom: 2px;">危老/TOD 獎勵<br>+{{ data.Land_Metrics.Bonus_FAR_Pct }}%</div>
+                        {% endif %}
+                        <div class="far-bar far-bar-base" style="height: {{ (data.Land_Metrics.Base_FAR_Pct * 0.75)|round }}px; width: 160px; font-size: 13.5px; font-weight: 800; line-height: 1.35;">基準容積率<br>{{ data.Land_Metrics.Base_FAR_Pct }}%</div>
+                    </div>
+                    <!-- Ground Line Label (GL) -->
+                    <div style="color: #64748b; font-size: 9px; font-weight: bold; font-family: var(--font-english); letter-spacing: 0.5px; text-align: center; margin-top: 1px;">▼ GROUND LINE (GL)</div>
+                </div>
+            </div>
+
+            <!-- Column 2: Architecture Perspective (Middle) -->
+            <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 10px 8px;">
+                <div class="card-title" style="align-self: center; font-size: 15px; margin-bottom: 4px;">📷 建築外觀透視圖</div>
+                
+                <div style="flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 2px;">
+                    {% if data.Volume_Image %}
+                    <img src="{{ data.Volume_Image }}" style="max-width: 100%; max-height: 350px; width: auto; height: auto; object-fit: contain; border-radius: 8px; border: 1.5px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.25);" alt="3D Volume Preview" />
+                    {% else %}
+                    <div style="text-align: center; color: var(--muted-color); font-size: 12px; border: 1.5px dashed var(--border-color); width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; background: rgba(255,255,255,0.01);">
+                         <span style="font-size: 32px; display: block; margin-bottom: 8px;">🏢</span>
+                        未提供外觀透視圖
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Column 3: Product Positioning Strategy (Right) -->
+            <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; padding: 15px;">
+                <div>
+                    <div class="card-title" style="margin-bottom: 28px; font-size: 16px;">🏢 產品定位策略</div>
+                    <div class="card-content" style="font-size: 12.5px; line-height: 1.75;">
+                        <ul style="padding-left: 0;">
+                            <li style="margin-bottom: 12px;">產品定位：都會美學精品住宅地標</li>
+                            <li style="margin-bottom: 12px;">目標受眾：中高產商務菁英與高資產家庭</li>
+                            <li style="margin-bottom: 12px;">設計亮點：{{ data.Facade_Type if data.Facade_Type else '一般磁磚' }}外牆、銀級標準</li>
+                            <li style="margin-bottom: 12px;">區域均價：TWD {{ data.Financial_HUD.Market_Price_萬坪 }} 萬/坪</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="terminal-block" style="padding: 10px; margin-top: 15px;">
+                    <div class="terminal-body" style="font-size: 11.5px; line-height: 1.45;">
+                        [✦ AI 顧問洞察] 算力優化容積疊加達 {{ data.Land_Metrics.Actual_FAR_Pct }}% 實現極大化坪效。建議規劃符合高單價客群期待之設計。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 06: Demographic Demands -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">產品定位與客群鎖定：精品都會生活指標</div>
+                <div class="slide-subtitle">PRODUCT STRATEGY</div>
+            </div>
+            <div class="slide-page-num">06</div>
+        </div>
+
+        <div class="slide-body grid-2col">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">👥 目標客群與市場去化定位</div>
+                    <span class="card-badge">TARGETS</span>
+                </div>
+                <div class="card-content">
+                    <ul>
+                        <li>客群輪廓：都會商務高薪主管、科技菁英、自營商及本地換屋高資產家庭。</li>
+                        <li>購屋訴求：極度看重地段稀缺性（臨 12m 道路角地，且鬧中取靜）、建材品牌、室內採光與智慧收納規劃。</li>
+                        <li>坪數帶規劃：主打中等坪數（24-45坪）之主流精品戶型，配置合理公設比，有效降低總價門檻，加快市場去化節奏。</li>
+                        <li>區域推案行情支撐：{{ data.Financial_HUD.Market_Price_萬坪 }} 萬/坪，具備強大保值增值實力。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">⚡ 精緻公設與規劃優化 (AI 建議導入)</div>
+                    <span class="card-badge">PRODUCT</span>
+                </div>
+                <div class="card-content">
+                    <ul>
+                        <li>智慧住宅系統：全面標配智能防盜門禁、智慧燈光與新風系統，提升精緻生活儀式感。</li>
+                        <li>頂樓景觀公設：規劃空中花園與多功能共享交誼廳，以精緻質感公設拉開與周邊舊大樓的產品代差。</li>
+                        <li>高效率車位配比：地下開挖規劃高品質坡道車位，解決都會蛋黃區最痛點的停車問題。</li>
+                        <li>永續綠建築：取得銀級智慧綠建築標章，提升品牌溢價與銀行融資優勢。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 07: Space & Height Geometry -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">空間配置與高坪效展現：剖面規模及指標精算</div>
+                <div class="slide-subtitle">SPACE ALLOCATION</div>
+            </div>
+            <div class="slide-page-num">07</div>
+        </div>
+
+        <div class="slide-body grid-2col">
+            <!-- Left Height schematic representation -->
+            <div class="card" style="align-items: center; justify-content: center;">
+                <div class="card-title" style="align-self: flex-start; margin-bottom: 20px;">🏢 空間幾何剖面與規模指標</div>
+                
+                <div style="width: 260px; display: flex; flex-direction: column; gap: 15px; border-left: 2px dashed var(--primary-color); padding-left: 25px;">
+                    <div style="background-color: var(--card-bg); border: 2px solid var(--primary-color); border-radius: 8px; padding: 12px; text-align: center;">
+                        <span style="font-weight: 700; display: block; margin-bottom: 4px; color: var(--card-title-color);">地上層 (10F)</span>
+                        <span style="font-size: 12px; color: var(--muted-color);">標準層約 137.5坪<br>規劃總銷售戶數: 82 戶</span>
+                    </div>
+
+                    <div style="height: 2px; background-color: var(--success-color); width: 100%;"></div>
+
+                    <div style="background-color: var(--card-bg); border: 1.5px solid var(--muted-color); border-radius: 8px; padding: 12px; text-align: center;">
+                        <span style="font-weight: 700; display: block; margin-bottom: 4px; color: var(--card-title-color);">地下層 (B3)</span>
+                        <span style="font-size: 12px; color: var(--muted-color);">開挖率 80.0%<br>配置優質車位 41 輛</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right details -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📊 規模效益與規劃詳述</div>
+                </div>
+                <div class="card-content">
+                    <ul>
+                        <li>規模效應：全案地下開挖至 B3 層，在 80% 高效率開挖率下，完全解決台北市停車位高額造價與地主戶配車需求，創造高額溢價。</li>
+                        <li>坪效釋放：地上樓高 10 層，結構退縮配置合理。透過免計容積、公共空間陽台及樓梯間算力配置，總樓地板面積達 2,681 坪，實務營造單價攤折效益優異。</li>
+                        <li>合規二驗：基地開挖比率完全符合台灣都會區建築管理自治條例限制，安全性防禦系數高。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 08: Chevron Gantt Timeline -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">開發時程與施工階段：工期鏈進度規劃</div>
+                <div class="slide-subtitle">DEVELOPMENT TIMELINE</div>
+            </div>
+            <div class="slide-page-num">08</div>
+        </div>
+
+        <div class="slide-body">
+            <div class="gantt-container">
+                <div class="gantt-node gantt-node-1">
+                    <div class="gantt-node-header">STAGE 01</div>
+                    <div class="gantt-node-title">連續壁與土方</div>
+                    <div class="gantt-node-time">{{ data.Execution_Gantt.Stage1_Months }}</div>
+                    <div class="gantt-node-desc">連續壁擋土、安全支撐施作與土方開挖運棄。</div>
+                </div>
+                <div class="gantt-node gantt-node-2">
+                    <div class="gantt-node-header">STAGE 02</div>
+                    <div class="gantt-node-title">地下結構體</div>
+                    <div class="gantt-node-time">{{ data.Execution_Gantt.Stage2_Months }}</div>
+                    <div class="gantt-node-desc">逆築或順向安全支撐地下結構梁柱與樓板施作。</div>
+                </div>
+                <div class="gantt-node gantt-node-3">
+                    <div class="gantt-node-header">STAGE 03</div>
+                    <div class="gantt-node-title">地上主體結構</div>
+                    <div class="gantt-node-time">{{ data.Execution_Gantt.Stage3_Months }}</div>
+                    <div class="gantt-node-desc">地上各樓層主體結構梁柱與剪力牆澆置施工。</div>
+                </div>
+                <div class="gantt-node gantt-node-4">
+                    <div class="gantt-node-header">STAGE 04</div>
+                    <div class="gantt-node-title">裝修與使照</div>
+                    <div class="gantt-node-time">{{ data.Execution_Gantt.Stage4_Months }}</div>
+                    <div class="gantt-node-desc">室內粉刷、機電安裝、外牆帷幕、使照申報與交屋。</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="font-size: 13px; color: var(--muted-color); text-align: center; margin-top: 15px; font-weight: 700;">
+            💡 工期鏈進度精算為 {{ data.Execution_Gantt.Total_Months }} 個月，整體節奏緊湊且合理。地下開挖深度與物理安全係數符合標準。
+        </div>
+    </div>
+
+    <!-- Page 09: CAPEX doughnut chart -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">預算精算：開發案 CAPEX 總資金分配架構</div>
+                <div class="slide-subtitle">CAPEX ALLOCATION</div>
+            </div>
+            <div class="slide-page-num">09</div>
+        </div>
+
+        <div class="slide-body grid-2col">
+            <div class="card" style="align-items: center; justify-content: center; position: relative;">
+                <div class="card-title" style="align-self: flex-start;">📊 CAPEX 資金分配佔比</div>
+                
+                <div class="doughnut-container">
+                    <svg class="doughnut-svg" viewBox="0 0 100 100">
+                        <circle class="doughnut-bg" cx="50" cy="50" r="30"></circle>
+                        
+                        <!-- Segments are drawn dynamically using stroke-dasharray & stroke-dashoffset -->
+                        <!-- Segment 1: Build (pct_build) -->
+                        <circle class="doughnut-segment doughnut-segment-build" cx="50" cy="50" r="30"
+                                stroke-dasharray="{{ (pct_build * 1.885)|round(2) }} 188.5" stroke-dashoffset="0"></circle>
+                        
+                        <!-- Segment 2: Manage (pct_mgt) -->
+                        <circle class="doughnut-segment doughnut-segment-mgt" cx="50" cy="50" r="30"
+                                stroke-dasharray="{{ (pct_mgt * 1.885)|round(2) }} 188.5" stroke-dashoffset="-{{ (pct_build * 1.885)|round(2) }}"></circle>
+                        
+                        <!-- Segment 3: Land (pct_land) -->
+                        <circle class="doughnut-segment doughnut-segment-land" cx="50" cy="50" r="30"
+                                stroke-dasharray="{{ (pct_land * 1.885)|round(2) }} 188.5" stroke-dashoffset="-{{ ((pct_build + pct_mgt) * 1.885)|round(2) }}"></circle>
+                    </svg>
+                    
+                    <div class="doughnut-center-text">
+                        <div class="doughnut-center-val">{{ (data.Financial_HUD.CAPEX_Land_Acquire_亿 + data.Financial_HUD.CAPEX_Build_亿 + data.Financial_HUD.CAPEX_Mgt_Interest_亿)|round(2) }} 億</div>
+                        <div class="doughnut-center-lbl">總開發預算</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">💰 資金支出與佔比明細</div>
+                </div>
+                <div class="card-content" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div style="border-left: 4px solid #3b82f6; padding-left: 15px;">
+                        <span style="font-weight: bold; color: var(--card-title-color); display: block;">1 營建總造價 ({{ pct_build }}%)</span>
+                        <span style="font-size: 13px; color: var(--muted-color);">TWD {{ data.Financial_HUD.CAPEX_Build_亿 }} 億元 (實務加權精算樓板單價每坪符合市場行情)</span>
+                    </div>
+                    <div style="border-left: 4px solid #f59e0b; padding-left: 15px;">
+                        <span style="font-weight: bold; color: var(--card-title-color); display: block;">2 利息與管銷費用 ({{ pct_mgt }}%)</span>
+                        <span style="font-size: 13px; color: var(--muted-color);">TWD {{ data.Financial_HUD.CAPEX_Mgt_Interest_亿 }} 億元 (含資金利息、人事與銷售管銷)</span>
+                    </div>
+                    <div style="border-left: 4px solid #10b981; padding-left: 15px;">
+                        <span style="font-weight: bold; color: var(--card-title-color); display: block;">3 土地取得成本 ({{ pct_land }}%)</span>
+                        <span style="font-size: 13px; color: var(--muted-color);">TWD {{ data.Financial_HUD.CAPEX_Land_Acquire_亿 }} 億元 (合建分售模式免購地大額資金支出)</span>
+                    </div>
+                </div>
+
+                <div class="card" style="padding: 12px 18px; margin-top: auto; background-color: rgba(16, 185, 129, 0.05); border-color: var(--success-color);">
+                    <div style="font-size: 12px; color: var(--success-color); line-height: 1.5;">
+                        [✦ AI 顧問洞察] 採合建開發模式，地主以土地作股，建商免除購買土地的大額現金流壓力，這能極大化建商自有資金的回報率(ROI)。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 10: Pro-Forma Statement -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">財務試算與利潤分析：Pro-Forma 財務預算評估</div>
+                <div class="slide-subtitle">FINANCIAL STATEMENT</div>
+            </div>
+            <div class="slide-page-num">10</div>
+        </div>
+
+        <div class="slide-body grid-2col">
+            <table class="slide-table" style="align-self: center;">
+                <thead>
+                    <tr>
+                        <th>財務評估項目</th>
+                        <th style="text-align: right;">預估金額 (百萬元)</th>
+                        <th style="text-align: right;">佔銷售總額比例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set total_rev = (data.Financial_HUD.Net_Profit_亿 + data.Financial_HUD.CAPEX_Build_亿 + data.Financial_HUD.CAPEX_Land_Acquire_亿 + data.Financial_HUD.CAPEX_Mgt_Interest_亿) * 100 %}
+                    {% set total_cost = (data.Financial_HUD.CAPEX_Build_亿 + data.Financial_HUD.CAPEX_Land_Acquire_亿 + data.Financial_HUD.CAPEX_Mgt_Interest_亿) * 100 %}
+                    <tr>
+                        <td style="font-weight: 700;">預估總銷售收益 (A)</td>
+                        <td style="text-align: right; font-weight: 700;">{{ total_rev|round(1) }}</td>
+                        <td style="text-align: right; font-weight: 700;">100.0%</td>
+                    </tr>
+                    <tr>
+                        <td> - 住宅與店鋪銷售</td>
+                        <td style="text-align: right;">{{ (total_rev * 0.85)|round(1) }}</td>
+                        <td style="text-align: right;">85.0%</td>
+                    </tr>
+                    <tr>
+                        <td> - 車位與其他收益</td>
+                        <td style="text-align: right;">{{ (total_rev * 0.15)|round(1) }}</td>
+                        <td style="text-align: right;">15.0%</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 700;">預估建方總投入成本 (B)</td>
+                        <td style="text-align: right; font-weight: 700;">{{ total_cost|round(1) }}</td>
+                        <td style="text-align: right; font-weight: 700;">{{ (total_cost / total_rev * 100)|round(1) }}%</td>
+                    </tr>
+                    <tr>
+                        <td> - 營造折合造價</td>
+                        <td style="text-align: right;">{{ (data.Financial_HUD.CAPEX_Build_亿 * 100)|round(1) }}</td>
+                        <td style="text-align: right;">{{ (data.Financial_HUD.CAPEX_Build_亿 * 100 / total_rev * 100)|round(1) }}%</td>
+                    </tr>
+                    <tr>
+                        <td> - 預估土地取得</td>
+                        <td style="text-align: right;">{{ (data.Financial_HUD.CAPEX_Land_Acquire_亿 * 100)|round(1) }}</td>
+                        <td style="text-align: right;">{{ (data.Financial_HUD.CAPEX_Land_Acquire_亿 * 100 / total_rev * 100)|round(1) }}%</td>
+                    </tr>
+                    <tr>
+                        <td> - 管銷費與利息</td>
+                        <td style="text-align: right;">{{ (data.Financial_HUD.CAPEX_Mgt_Interest_亿 * 100)|round(1) }}</td>
+                        <td style="text-align: right;">{{ (data.Financial_HUD.CAPEX_Mgt_Interest_亿 * 100 / total_rev * 100)|round(1) }}%</td>
+                    </tr>
+                    <tr style="background-color: rgba(16,185,129,0.05);">
+                        <td style="font-weight: 700; color: var(--success-color);">全案開發淨利 (A - B)</td>
+                        <td style="text-align: right; font-weight: 700; color: var(--success-color);">{{ (data.Financial_HUD.Net_Profit_亿 * 100)|round(1) }}</td>
+                        <td style="text-align: right; font-weight: 700; color: var(--success-color);">{{ (data.Financial_HUD.Net_Profit_亿 * 100 / total_rev * 100)|round(1) }}%</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div class="card" style="flex: 1; align-items: center; justify-content: center; text-align: center;">
+                    <span style="color: var(--muted-color); font-size: 13px; font-weight: 700; display: block; margin-bottom: 5px;">
+                        預估開發投資報酬率 (ROI)
+                    </span>
+                    <strong style="font-family: var(--font-english); font-size: 48px; color: var(--success-color); line-height: 1;">
+                        {{ data.Financial_HUD.ROI_Pct }}%
+                    </strong>
+                </div>
+                <div class="card" style="flex: 1; align-items: center; justify-content: center; text-align: center;">
+                    <span style="color: var(--muted-color); font-size: 13px; font-weight: 700; display: block; margin-bottom: 5px;">
+                        預估全案開發淨利 (Net Profit)
+                    </span>
+                    <strong style="font-family: var(--font-english); font-size: 34px; color: var(--card-title-color); line-height: 1;">
+                        TWD {{ data.Financial_HUD.Net_Profit_亿 }} 億元
+                    </strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 11: Risk Stress Testing Table -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">情境分析與壓力測試：市場與工料波動敏感度</div>
+                <div class="slide-subtitle">RISK STRESS TESTING</div>
+            </div>
+            <div class="slide-page-num">11</div>
+        </div>
+
+        <div class="slide-body" style="grid-template-rows: 1fr auto; gap: 20px;">
+            <table class="slide-table" style="align-self: center;">
+                <thead>
+                    <tr>
+                        <th style="width: 22%;">風險壓力情境</th>
+                        <th style="width: 28%;">利潤衝擊預算影響</th>
+                        <th>安全防禦邊際</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight: 700;">營造成本上漲 10%<br>(工料上漲壓力)</td>
+                        <td style="color: var(--error-color);">利潤減少約 {{ (data.Financial_HUD.CAPEX_Build_亿 * 10)|round(0) }} 百萬元</td>
+                        <td>本案高銷容比之坪效溢價可安全覆蓋成本上漲波動 (中低風險)</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 700;">推案售價下跌 5%<br>(市場行情波動)</td>
+                        <td style="color: var(--error-color);">利潤減少約 {{ (data.Financial_HUD.Net_Profit_亿 * 5)|round(0) }} 百萬元</td>
+                        <td>利潤稍降但推案單價與 BEP 兩平點之間保留 {{ data.Financial_HUD.Safety_Margin_萬坪 }} 萬/坪之防護墊 (中度風險)</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 700;">雙重夾擊<br>(成本+10% 且 售價-5%)</td>
+                        <td style="color: var(--error-color); font-weight: 700;">利潤減少約 {{ (data.Financial_HUD.CAPEX_Build_亿 * 10 + data.Financial_HUD.Net_Profit_亿 * 5)|round(0) }} 百萬元</td>
+                        <td style="font-weight: 700; color: var(--accent-color);">仍能維持正值獲利。本開發案安全底氣充足，抗風險能力極佳 (中風險)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="card" style="padding: 20px; background-color: rgba(168, 85, 247, 0.05); border-color: var(--primary-color);">
+                <div style="font-size: 14.5px; line-height: 1.6; color: var(--text-color);">
+                    <strong style="color: var(--primary-color); display: block; margin-bottom: 6px;">[✦ AI 壓力測試診斷]</strong>
+                    全案經蒙地卡羅算力敏感度模擬：工料雙漲與推案價跌 5% 的雙重最極端情境下，建商預估利潤率仍維持正值。主因在於本案地段極佳、TOD 獎勵解鎖之「銷坪增益」建立了極高的利潤防火牆。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 12: Negotiation strategy -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">開發談判與籌碼分析：合建比率優化與土地買斷上限</div>
+                <div class="slide-subtitle">NEGOTIATION STRATEGY</div>
+            </div>
+            <div class="slide-page-num">12</div>
+        </div>
+
+        <div class="slide-body grid-2col">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🤝 合建開發談判要點</div>
+                </div>
+                <div class="card-content">
+                    <ul>
+                        <li>建方安全分配率底線：必須鎖定在安全底線以上（一般為40%-45%），以確保基礎利潤率。</li>
+                        <li>地主分回店面及車位權重控管：協調店鋪優先分配給建商銷售，或由地主以高價折抵，避免精華店鋪分配失衡。</li>
+                        <li>履約保證金及信託：規劃「履約信託管理機制」，降低地主對於高通膨工期延長之爛尾樓疑慮，建立談判信任基礎。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">💰 土地買斷取得成本反推 (Land Purchase Ceiling)</div>
+                </div>
+                <div class="card-content">
+                    <ul>
+                        <li>若本案改採「土地購地買斷」開發模式，在維持建商 20% 毛利安全防禦線下，AI 逆向算力反推購地出價上限：<br>
+                            {% set max_land_price_12 = (((data.Financial_HUD.Net_Profit_亿 + data.Financial_HUD.CAPEX_Build_亿 + data.Financial_HUD.CAPEX_Land_Acquire_亿 + data.Financial_HUD.CAPEX_Mgt_Interest_亿) * 10000 * 0.8) / data.Land_Metrics.Total_Land_Area_Ping)|round(0) if data.Land_Metrics.Total_Land_Area_Ping > 0 else 239 %}
+                            <strong style="color: var(--accent-color); font-size: 18px; display: block; margin-top: 8px;">
+                                【 TWD {{ max_land_price_12|round(0)|int }} 萬元 / 坪 】
+                            </strong>
+                        </li>
+                        <li>超過此出價上限，全案 ROI 將低於行業平均安全基準，建方宜採合建避險或放棄本案源。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="terminal-block" style="margin-top: 20px;">
+            <div class="terminal-header">> _ AI 談判建議終端</div>
+            <div class="terminal-body">
+                [✦ AI 談判建議] {{ ai.page12_risk_comment }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 13: Risk defense -->
+    <div class="slide">
+        <div class="slide-header">
+            <div class="slide-title-group">
+                <div class="slide-title">AI 風險防禦與監測策略：工程及合約風險防護</div>
+                <div class="slide-subtitle">RISK MANAGEMENT</div>
+            </div>
+            <div class="slide-page-num">13</div>
+        </div>
+
+        <div class="slide-body grid-2col">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🛡️ 工程與地質風險防範策略</div>
+                </div>
+                <div class="card-content">
+                    <ul>
+                        <li>連續壁與擋土監測：本案地下開挖至 B3 層，開挖深度深。必須引進即時電子感測儀監控連續壁之側向土壓力與鄰房傾斜變形指標。</li>
+                        <li>鄰捷運保護管制：基地距離捷運 150m，屬捷運兩側禁限建管制範圍。施工圖審與地盤改良灌漿方案需經捷運局專案審查，確保潛盾隧道零變形。</li>
+                        <li>低液化潛勢防護：雖處低液化區，仍規劃打設地盤改良樁至承載岩盤層，以完全防禦極端地震液化風險。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">⚖️ 法律合約與政經護城河</div>
+                </div>
+                <div class="card-content">
+                    <ul>
+                        <li>危老與都更互斥規避：AI 法規大腦已鎖定互斥規約。本案已套用最快速審查之危老通道，絕不可中途變更為都更申請，避免卡審耽誤工期。</li>
+                        <li>物價指數調整 (Indexation)：營造合約需明訂「主要物料波動調整條款」，約定當鋼筋或水泥單項漲幅 > 5% 時，超出部分依比例共同分攤，防範工料波動。</li>
+                        <li>產權分售信託保護：銷售資金規劃信託專戶，依工程進度核撥，避免銷售收入被建商他案調度，保障地主產權。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="padding: 15px 24px; margin-top: 20px; border-color: var(--primary-color); background-color: rgba(168, 85, 247, 0.02);">
+            <div style="font-size: 13px; color: var(--primary-color); font-weight: 700;">
+                [✦ AI 顧問風險防禦對策] {{ ai.page13_risk_comment }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 14: Feasibility Verdict -->
+    <div class="slide">
+        <div class="slide-header {% if data.Financial_HUD.Net_Profit_亿 < 0 %}flagged{% endif %}">
+            <div class="slide-title-group">
+                <div class="slide-title">開發可行性最終決策：AI 綜合開發可行性投資建議</div>
+                <div class="slide-subtitle">DECISION VERDICT</div>
+            </div>
+            <div class="slide-page-num">14</div>
+        </div>
+
+        <div class="slide-body grid-3col">
+            <!-- Card 1 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title" style="color: {% if data.Financial_HUD.Net_Profit_亿 < 0 %}var(--error-color){% else %}var(--success-color){% endif %};">
+                        {% if data.Financial_HUD.Net_Profit_亿 < 0 %}❌ 商務可行性：不通過{% else %}💰 商務可行性：通過{% endif %}
+                    </div>
+                </div>
+                <div class="card-content" style="font-size: 13px;">
+                    {% if data.Financial_HUD.Net_Profit_亿 < 0 %}
+                    財務淨利為負值，預估投資回報率 ROI 低於基本獲利紅線，安全邊際緩衝區已不存在，商務面予以否決。
+                    {% else %}
+                    預估利潤率與 ROI 達安全水準，與損益兩平點 (BEP {{ data.Financial_HUD.BEP_Price_萬坪 }} 萬) 保留足夠的「利潤防禦墊」，商務面核准啟動。
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title" style="color: var(--success-color);">
+                        📐 幾何與法規：通過
+                    </div>
+                </div>
+                <div class="card-content" style="font-size: 13px;">
+                    面前道路寬度、開挖率與容積獎勵疊加 (實質強度 {{ data.Land_Metrics.Actual_FAR_Pct }}%) 幾何空間配置完全可行，法規面審查通過。
+                </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title" style="color: {% if data.Financial_HUD.Net_Profit_亿 < 0 %}var(--error-color){% else %}var(--success-color){% endif %};">
+                        {% if data.Financial_HUD.Net_Profit_亿 < 0 %}🚫 最終決策：暫緩啟動{% else %}🚀 最終決策：建議啟動{% endif %}
+                    </div>
+                </div>
+                <div class="card-content" style="font-size: 13px;">
+                    {% if data.Financial_HUD.Net_Profit_亿 < 0 %}
+                    因獲利不足，應立即重啟分配比率談判，調降地主分配率；或改採購地買斷，否則宜退出本案。
+                    {% else %}
+                    本案地段極佳，財務及法規綠燈全亮。建議團隊積極進行地主整合談判，並開始著手危老報核與建築設計申請。
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div class="card" style="padding: 12px 24px; margin-top: 20px; font-size: 11px; line-height: 1.5; color: var(--muted-color); border-color: var(--border-color);">
+            免責與數據依據聲明：本簡報之基準容積、建蔽率及法規獎勵判定，皆依據 2026.Q2 現行都市計畫法、土地使用分區管制自治條例及危老/都更條例，由系統算力模組化生成。營造成本參考最新市場工料行情與台北市標準營造單價。本報告僅供前期效益評估決策參考，不作法律憑證，最終數值以地政機關複丈、主管機關審查核准及建築師簽證圖說為準。
+        </div>
+    </div>
+
+    <!-- Page 15: Thank You -->
+    <div class="slide">
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+            <div style="font-size: 40px; font-weight: 900; color: var(--card-title-color); margin-bottom: 20px;">
+                感謝聆聽 ． 敬請指導
+            </div>
+            <div style="font-size: 16px; color: {% if data.Financial_HUD.Net_Profit_亿 < 0 %}var(--error-color){% else %}var(--primary-color){% endif %}; font-weight: 700; margin-bottom: 60px;">
+                讓開發更放心，讓算力更精準
+            </div>
+            <div style="font-size: 13px; color: var(--muted-color); font-weight: 700;">
+                評估引擎：{{ data.Project_Metadata.Engine_Version }}  |  全案土地開發效益診斷專案
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

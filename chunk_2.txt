@@ -1,0 +1,151 @@
+StartLine: 9091
+EndLine: 9207
+=== TARGET ===
+// AI 法規分析（預留框架，API Key 設定後完整實作）
+function closeAiRegModal() {
+    const modal = document.getElementById('ai-reg-modal');
+    if (modal) modal.classList.remove('open');
+}
+
+async function runRegulationAI() {
+=== REPLACEMENT ===
+// AI 法規分析（預留框架，API Key 設定後完整實作）
+function closeAiRegModal() {
+    const modal = document.getElementById('ai-reg-modal');
+    if (modal) modal.classList.remove('open');
+}
+
+// 內嵌結果展開/收合
+let lastLegalAnalysisText = null;
+function toggleLegalResult() {
+    const area    = document.getElementById('reg-ai-inline-area');
+    const txt     = document.getElementById('reg-ai-inline-text');
+    const actions = document.getElementById('reg-ai-inline-actions');
+    const btn     = document.getElementById('reg-ai-collapse-btn');
+    if (!area) return;
+    const isHidden = area.classList.contains('hidden');
+    area.classList.toggle('hidden', !isHidden);
+    if (txt && lastLegalAnalysisText)    txt.classList.toggle('hidden', !isHidden);
+    if (actions && lastLegalAnalysisText) actions.classList.toggle('hidden', !isHidden);
+    if (btn) btn.textContent = isHidden ? '\u2227' : '\u2228';
+}
+
+async function runRegulationAI() {
+    const county   = S.cadastralCounty || '';
+    const district = S.cadastralDistrict || '';
+    const zone     = S.cadastralZone || '';
+    const location = (document.getElementById('location') || {}).value || '';
+    
+    let apiKey = '';
+    try {
+        apiKey = localStorage.getItem('gemini_api_key') || '';
+    } catch(e) {}
+    
+    if (!apiKey) {
+        alert('🔒 請先在 AI 頁簽設定 Gemini API Key');
+        return;
+    }
+    
+    // 内嵌區塊元素
+    const inlineArea    = document.getElementById('reg-ai-inline-area');
+    const inlineLoading = document.getElementById('reg-ai-inline-loading');
+    const inlineText    = document.getElementById('reg-ai-inline-text');
+    const inlineActions = document.getElementById('reg-ai-inline-actions');
+    const collapseBtn   = document.getElementById('reg-ai-collapse-btn');
+
+    // 顯示內嵌區塊 + loading
+    if (inlineArea)    { inlineArea.classList.remove('hidden'); }
+    if (inlineLoading) { inlineLoading.classList.remove('hidden'); }
+    if (inlineText)    { inlineText.classList.add('hidden'); inlineText.innerText = ''; }
+    if (inlineActions) { inlineActions.classList.add('hidden'); }
+
+    // 也開啟 Modal（守舊相容）
+    const modal = document.getElementById('ai-reg-modal');
+    const loading = document.getElementById('ai-reg-loading');
+    const resultText = document.getElementById('ai-reg-result-text');
+    if (modal) modal.classList.add('open');
+    if (loading) loading.classList.remove('hidden');
+    if (resultText) { resultText.classList.add('hidden'); resultText.innerText = ''; }
+    
+    const actualModel = (apiModel === 'gemini-3.5-flash') ? 'gemini-2.5-flash' :
+                        (apiModel === 'gemini-3.1-flash-lite') ? 'gemini-2.5-flash' : 
+                        apiModel;
+                        
+    const prompt = `您是一位台灣都市計畫與土地開發法規專家。請針對以下基地條件進行「開發適法性與基準容積率/建較率分析」：
+    • 縣市：${county}
+    • 行政區：${district}
+    • 使用分區：${zone}
+    • 基地大概地址/標的：${location}
+    
+    請分析並回覆以下內容（繁體中文，格式清晰，字數適中約 300-500 字，分段清晰）：
+    1. 基準建較率與容積率分析：針對此分區的法定標準（如商一、住三等），列出基準數值，並特別指出有無特定的都市計畫細部計畫特例。
+    2. 適用容積獎勵與移入管道：分析此基地可嘗試的法規套用。
+    3. 特殊適法性或開發限制建議。
+    請用條列式或段落回答，排版精緣。`;
+    
+    try {
+        let text = '';
+        let success = false;
+        
+        // Attempt 1: Model + Google Search Grounding
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    tools: [{ google_search: {} }]
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                if (text) success = true;
+            } else {
+                const errData = await res.json();
+                console.warn("Attempt 1 failed:", errData.error?.message);
+            }
+        } catch (e) { console.warn("Attempt 1 error:", e); }
+        
+        // Attempt 2: Fallback WITHOUT Search Grounding
+        if (!success) {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error?.message || `HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (text) success = true;
+        }
+        
+        if (!success) throw new Error('未能生成分析報告內容');
+
+        // 儲存結果
+        lastLegalAnalysisText = text;
+
+        // 渲染内嵌區塊
+        if (inlineLoading) inlineLoading.classList.add('hidden');
+        if (inlineText)    { inlineText.innerText = text; inlineText.classList.remove('hidden'); }
+        if (inlineActions) inlineActions.classList.remove('hidden');
+        if (collapseBtn)   collapseBtn.classList.remove('hidden');
+
+        // 同步更新 Modal
+        if (loading) loading.classList.add('hidden');
+        if (resultText) { resultText.innerText = text; resultText.classList.remove('hidden'); }
+
+    } catch (e) {
+        console.error('AI legal analysis failed:', e);
+        const errHtml = `<span style="color:#f87171">❌ AI 分析失敗，請檢查 API Key 或網路連線。<br><br>(錯誤: ${e.message})</span>`;
+
+        if (inlineLoading) inlineLoading.classList.add('hidden');
+        if (inlineText)    { inlineText.innerHTML = errHtml; inlineText.classList.remove('hidden'); }
+        if (loading) loading.classList.add('hidden');
+        if (resultText) { resultText.innerHTML = errHtml; resultText.classList.remove('hidden'); }
+        if (collapseBtn) collapseBtn.classList.remove('hidden');
+    }
+}

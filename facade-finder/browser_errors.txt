@@ -1,0 +1,32 @@
+{
+  "message": "Uncaught ReferenceError: updateExternalSearchLinks is not defined",
+  "source": "http://localhost:8000/app.js",
+  "lineno": 368,
+  "colno": 3,
+  "stack": "ReferenceError: updateExternalSearchLinks is not defined\n    at renderGallery (http://localhost:8000/app.js:368:3)\n    at HTMLDocument.init (http://localhost:8000/app.js:196:3)"
+}
+
+{
+  "message": "Uncaught ReferenceError: updateExternalSearchLinks is not defined",
+  "source": "http://localhost:8000/app.js",
+  "lineno": 368,
+  "colno": 3,
+  "stack": "ReferenceError: updateExternalSearchLinks is not defined\n    at renderGallery (http://localhost:8000/app.js:368:3)\n    at HTMLDocument.init (http://localhost:8000/app.js:196:3)"
+}
+
+{
+  "message": "Uncaught ReferenceError: updateExternalSearchLinks is not defined",
+  "source": "http://localhost:8000/app.js",
+  "lineno": 368,
+  "colno": 3,
+  "stack": "ReferenceError: updateExternalSearchLinks is not defined\n    at renderGallery (http://localhost:8000/app.js:368:3)\n    at HTMLDocument.init (http://localhost:8000/app.js:196:3)"
+}
+
+{
+  "message": "Uncaught ReferenceError: updateExternalSearchLinks is not defined",
+  "source": "http://localhost:8000/app.js",
+  "lineno": 368,
+  "colno": 3,
+  "stack": "ReferenceError: updateExternalSearchLinks is not defined\n    at renderGallery (http://localhost:8000/app.js:368:3)\n    at HTMLDocument.init (http://localhost:8000/app.js:196:3)"
+}
+

@@ -1,0 +1,2332 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            alert("JS Error: " + message + "\\nLine: " + lineno + "\\nCol: " + colno + "\\nSource: " + source);
+            return false;
+        };
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>土地開發試算系統</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="土開試算">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/602/602182.png">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="src/style.css">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('[PWA] Service Worker registered successfully', reg.scope))
+                    .catch(err => console.log('[PWA] Service Worker registration failed', err));
+            });
+        }
+    </script>
+</head>
+<body>
+
+<!-- 全螢幕開場動畫遮罩 -->
+<div id="app-startup-splash" class="fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center transition-opacity duration-700 ease-in-out">
+    <div class="relative w-full max-w-[430px] h-full flex items-center justify-center bg-black overflow-hidden shadow-2xl">
+        <video id="splashVideo" class="w-full h-full object-contain" autoplay playsinline onended="dismissSplash()">
+            <source src="風格/開場動畫/第二版.mp4" type="video/mp4">
+            您的瀏覽器不支援 MP4 視訊播放。
+        </video>
+        <!-- SKIP 按鈕 -->
+        <button type="button" onclick="dismissSplash()" class="absolute bottom-8 right-6 px-5 py-2.5 bg-black/50 hover:bg-black/70 border border-white/20 text-white font-black text-xs rounded-full backdrop-blur-md transition-all active:scale-95 shadow-lg flex items-center gap-1.5 z-[100000]">
+            <span>SKIP</span>
+            <span class="text-[10px] opacity-70">➔</span>
+        </button>
+    </div>
+</div>
+
+
+<div id="phone-frame">
+
+<!-- ═══════════════ FIXED HEADER ═══════════════ -->
+<div id="app-header" class="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-4">
+    <div class="flex justify-between items-center pt-safe py-2.5">
+        <!-- Title / reset -->
+        <div class="flex items-center gap-2">
+            <div onclick="resetAll()" class="tap cursor-pointer">
+                <h1 class="text-xl font-black txt-grad leading-tight">土地開發試算系統</h1>
+                <p class="text-[10.5px] text-slate-600 tracking-widest mt-0.5">點擊重置 · MOBILE PRO v4.0</p>
+            </div>
+            <button onclick="replaySplash()" class="tap p-1.5 rounded-lg border border-slate-700/80 hover:border-slate-500 text-slate-400 hover:text-white transition-colors" title="重播放開場動畫" style="margin-top: -8px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+            </button>
+        </div>
+        <!-- Live results -->
+        <div class="flex flex-col items-end gap-1">
+            <div class="pill bg-blue-900/60 text-blue-300 border border-blue-800/40" style="width: 112px; display: inline-flex; justify-content: flex-start; align-items: center; font-size: 0.78rem; padding: 3.5px 9px;">
+                淨利&thinsp;<span id="hdr-profit" class="font-mono font-black">--</span>&thinsp;萬
+            </div>
+            <div id="hdr-roi-pill" class="pill bg-slate-800/80 text-slate-400 border border-slate-700/40" style="width: 112px; display: inline-flex; justify-content: flex-start; align-items: center; font-size: 0.78rem; padding: 3.5px 9px;">
+                ROI&thinsp;<span id="hdr-roi" class="font-mono font-black">--</span>
+            </div>
+        </div>
+    </div>
+    <!-- Mode selector -->
+    <div class="flex gap-1 p-1 bg-slate-800/80 rounded-2xl border border-slate-700/50 mb-3">
+        <button id="modeJoint"    onclick="switchMode('joint')"    class="mode-tab active">合建分售</button>
+        <button id="modePurchase" onclick="switchMode('purchase')" class="mode-tab">土地買斷</button>
+        <button id="modeMixed"    onclick="switchMode('mixed')"    class="mode-tab">混合模式</button>
+    </div>
+</div>
+
+<!-- ═══════════════ SCROLLABLE CONTENT ═══════════════ -->
+<div id="app-content">
+
+    <!-- ① 土地參數 -->
+    <div id="tab-land" class="tab-panel space-y-4">
+
+        <div class="glass p-5 shadow-xl">
+            <div class="flex justify-between items-center mb-1">
+                <h2 class="sec-title"><span class="sec-bar bg-blue-500"></span>基礎開發參數</h2>
+                <div class="flex gap-1.5">
+                    <button onclick="openProjectModal()" class="tap flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold" title="專案管理">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>專案
+                    </button>
+                    <button onclick="openCadastralModal()" class="tap flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-600/20 border border-violet-500/40 text-violet-400 text-xs font-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>地籍圖
+                    </button>
+                    <button onclick="openMapsModal()" class="tap flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-400 text-xs font-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>地圖
+                    </button>
+                </div>
+            </div>
+            <div id="projectStatusContainer" class="text-[12px] text-slate-400 flex items-center gap-1 mb-1 select-none">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>當前專案：</span>
+                <span id="projectStatusName" class="font-bold text-emerald-400 text-[12px]">載入中...</span>
+            </div>
+
+            <!-- 基地位置徽章（改為隱藏，保留 JS 相依性）-->
+            <div id="locationBadge" onclick="openMapsModal()" class="hidden">
+                <span id="locationBadgeText"></span>
+            </div>
+
+            <!-- ══════════ 法規專欄 Card ══════════ -->
+            <div class="glass p-5 shadow-xl mb-3" id="regulation-card">
+                <!-- Header（可折疊） -->
+                <div class="flex justify-between items-center cursor-pointer select-none" onclick="toggleRegulationPanel()">
+                    <h2 class="sec-title mb-0">
+                        <span class="sec-bar bg-amber-500"></span>
+                        <span>📋 法規專欄</span>
+                        <span id="reg-active-badge" class="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 hidden">已篩選</span>
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <span id="reg-county-tag" class="text-[10px] text-slate-500"></span>
+                        <svg id="reg-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" class="text-slate-400 transition-transform duration-300"><path d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                </div>
+
+                <!-- Panel Body -->
+                <div id="regulation-panel-body" class="hidden mt-4 space-y-4">
+
+                    <!-- ⓪ 基準法定建蔽率與容積率 -->
+                    <div class="border-b border-slate-800/80 pb-3">
+                        <div class="text-[10px] text-slate-500 font-bold tracking-widest mb-2">[ 基準法定建蔽率與容積率 ]</div>
+                        <div class="bg-slate-900/40 border border-slate-800/60 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <span id="reg-bcr-far-zone" class="text-[11px] font-bold text-slate-200">請設定縣市與使用分區</span>
+                                <span id="reg-bcr-far-source" class="text-[9px] text-slate-500"></span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 my-2">
+                                <div class="bg-slate-950/40 border border-slate-800/50 rounded-lg p-2 text-center">
+                                    <div class="text-[9px] text-slate-500">基準建蔽率</div>
+                                    <div id="reg-bcr-val" class="text-base font-bold text-slate-100 mt-0.5">-- %</div>
+                                </div>
+                                <div class="bg-slate-950/40 border border-slate-800/50 rounded-lg p-2 text-center">
+                                    <div class="text-[9px] text-slate-500">基準容積率</div>
+                                    <div id="reg-far-val" class="text-base font-bold text-slate-100 mt-0.5">-- %</div>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 mt-2">
+                                <div id="reg-bcr-far-warning" class="text-[9px] text-amber-500/90 leading-normal max-w-[65%] hidden">
+                                    ⚠️ 本區為特定計畫區，基準值僅供參考，請依都市計畫細部計畫書為準。
+                                </div>
+                                <div class="flex gap-1.5 ml-auto">
+                                    <a id="reg-bcr-far-query-btn" href="https://easymap.land.moi.gov.tw/" target="_blank" class="tap px-2 py-1 rounded bg-slate-850 border border-slate-750 text-[9px] text-blue-400 hover:text-blue-300 font-bold transition-all hidden">🌐 圖資查詢</a>
+                                    <button id="reg-bcr-far-apply-btn" onclick="applyBaseBcrFar()" class="tap px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-[9px] text-slate-500 font-bold transition-all cursor-not-allowed opacity-50" disabled>🟢 套用基準值</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ① 核心適法性引擎 -->
+                    <div>
+                        <div class="text-[10px] text-slate-500 font-bold tracking-widest mb-2">[ 核心適法性引擎 ]</div>
+
+                        <!-- 國家級通用包 -->
+                        <div class="reg-pkg reg-pkg-national mb-2">
+                            <div class="flex items-start gap-2">
+                                <span class="reg-tree-line mt-1">├─</span>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-[11px] font-bold text-slate-200">🏛 國家級通用包</span>
+                                        <span class="reg-tag bg-slate-700 text-slate-300">固定適用</span>
+                                    </div>
+                                    <div class="space-y-1.5 pl-1">
+                                        <div class="reg-rule-row" data-bonus-name="都市更新容積獎勵" data-bonus-max="50" data-type="bonus" data-far-key="都更">
+                                            <div class="flex items-center gap-1.5 flex-1">
+                                                <span class="text-emerald-400 text-[10px]">●</span>
+                                                <span class="text-[10px] text-slate-300">都市更新條例</span>
+                                                <span class="reg-ceil">天花板 50%</span>
+                                            </div>
+                                            <button onclick="applyRegBonus(this)" class="reg-apply-btn">＋套用</button>
+                                        </div>
+                                        <div class="reg-rule-row" data-bonus-name="危老重建容積獎勵" data-bonus-max="40" data-type="bonus" data-far-key="危老重建">
+                                            <div class="flex items-center gap-1.5 flex-1">
+                                                <span class="text-emerald-400 text-[10px]">●</span>
+                                                <span class="text-[10px] text-slate-300">危老條例</span>
+                                                <span class="reg-ceil">天花板 40%・時程獎勵 1.3×</span>
+                                            </div>
+                                            <button onclick="applyRegBonus(this)" class="reg-apply-btn">＋套用</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 地方政府擴充包 -->
+                        <div class="reg-pkg">
+                            <div class="flex items-start gap-2">
+                                <span class="reg-tree-line mt-1">└─</span>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="text-[11px] font-bold text-slate-200">🏙 地方政府擴充包</span>
+                                        <span id="reg-local-county-label" class="reg-tag bg-blue-900/50 text-blue-300 border-blue-700/50">依縣市自動篩選</span>
+                                    </div>
+                                    <div id="reg-local-packages" class="space-y-1.5 pl-1">
+                                        <div class="text-[10px] text-slate-600 italic">請先在地籍圖設定「所在縣市」</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ② 適用獎勵速查 -->
+                    <div class="border-t border-slate-800/80 pt-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-[10px] text-slate-500 font-bold tracking-widest">[ 適用獎勵速查 ]</div>
+                            <span id="reg-zone-label" class="text-[10px] text-slate-500"></span>
+                        </div>
+                        <div id="reg-bonus-hints" class="space-y-1.5">
+                            <div class="text-[10px] text-slate-600 italic">設定縣市與使用分區後將自動顯示建議獎勵</div>
+                        </div>
+                    </div>
+
+                    <!-- ③ AI 法規分析 -->
+                    <div class="border-t border-slate-800/80 pt-3" id="reg-ai-section">
+                        <div class="grid grid-cols-12 gap-2 items-center">
+                            <div class="col-span-5 pr-1">
+                                <div class="text-[10px] text-slate-400 font-bold">🤖 AI 法規智慧分析</div>
+                                <div class="text-[9px] text-slate-600 mt-0.5 leading-normal">依地段、縣市、使用分區<br>自動推薦最優獎勵組合</div>
+                            </div>
+                            <div class="col-span-7 flex items-center justify-end gap-1.5">
+                                <button id="reg-ai-btn" onclick="runRegulationAI()" class="tap px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed whitespace-nowrap" disabled title="請先在 AI 頁籤設定 Gemini API Key">
+                                    🔒 需設定 API
+                                </button>
+                                <button id="reg-ai-collapse-btn" onclick="toggleLegalResult()" class="hidden tap flex items-center justify-center w-7 h-7 rounded-lg text-[11px] font-bold bg-slate-800 border border-slate-700 text-violet-400 transition-all hover:bg-slate-700" title="展開/收合分析報告">
+                                    ∨
+                                </button>
+                            </div>
+                        </div>
+                        <!-- 內嵌可折疊結果 -->
+                        <div id="reg-ai-inline-area" class="hidden mt-3 space-y-2">
+                            <div id="reg-ai-inline-loading" class="hidden flex items-center gap-2 py-2">
+                                <div class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-violet-500 flex-shrink-0"></div>
+                                <span class="text-[10px] text-slate-400 animate-pulse tracking-wide">AI 法規適法性分析中，請稍候…</span>
+                            </div>
+                            <div id="reg-ai-inline-text" class="hidden text-[10px] text-slate-300 leading-relaxed whitespace-pre-line bg-slate-900/60 border border-violet-900/40 rounded-xl p-3 max-h-60 overflow-y-auto select-text"></div>
+                            <div id="reg-ai-inline-actions" class="hidden flex gap-2">
+                                <button onclick="copyLegalContent()" class="tap flex-1 py-2 bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-bold rounded-xl hover:bg-slate-700 flex items-center justify-center gap-1 transition-all">
+                                    📋 複製內容
+                                </button>
+                                <button id="btn-import-legal-slides" onclick="importLegalToSlides()" class="tap flex-1 py-2 bg-sky-600/25 border border-sky-500/40 text-sky-300 text-[10px] font-bold rounded-xl flex items-center justify-center gap-1 transition-all">
+                                    📊 匯入簡報
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /panel body -->
+            </div><!-- /法規專欄 -->
+
+            <!-- 基地位置隱藏欄位（保留 JS 相依性） -->
+            <input type="text" id="location" placeholder="輸入行政區或路段（例：中山區…）" class="inp hidden" oninput="updateLocationBadge(); calculateAll();">
+
+            <div class="space-y-3">
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="lbl">基地面積 (坪)</label>
+                        <input type="number" id="landArea" value="100" class="inp" oninput="calculateAll()">
+                    </div>
+                    <div>
+                        <label class="lbl">法定容積率 (%)</label>
+                        <input type="number" id="floorAreaRatio" value="225" class="inp" oninput="calculateAll()">
+                    </div>
+                    <div>
+                        <label class="lbl">法定建蔽率 (%)</label>
+                        <input type="number" id="buildingCoverageRatio" value="60" class="inp" oninput="calculateAll()">
+                    </div>
+                </div>
+                <!-- ① 獎勵容積 展開式面板 -->
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <div class="flex items-center gap-1">
+                            <label class="lbl mb-0">容積獎勵項目</label>
+                            <span id="bonusItemsSummary" class="text-emerald-400 text-[10px] font-bold"></span>
+                        </div>
+                        <span id="bonusAreaText" class="text-blue-400 text-[10px] font-bold">0 坪</span>
+                    </div>
+                    <div class="far-panel">
+                        <div class="far-ph" onclick="toggleFarPanel('bonus')">
+                            <span class="text-[10px] text-slate-500">點擊展開 / 新增項目</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-black text-emerald-400">總計：<span id="bonusTotalPct">0</span>&thinsp;%</span>
+                                <span id="bonus-toggle-icon" class="text-[10px] text-slate-500 font-bold">＋</span>
+                            </div>
+                        </div>
+                        <div id="bonus-panel-body" class="hidden border-t border-slate-800/80 px-3 pt-2.5 pb-3">
+                            <div id="bonus-items-list" class="space-y-2 mb-2.5"></div>
+                            <button class="far-add" onclick="addFarItem('bonus')">＋ 新增獎勵項目</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ② 容積移入 展開式面板 -->
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <div class="flex items-center gap-1">
+                            <label class="lbl mb-0">容積移入項目</label>
+                            <span id="transferItemsSummary" class="text-purple-400 text-[10px] font-bold"></span>
+                        </div>
+                        <span id="transferAreaText" class="text-blue-400 text-[10px] font-bold">0 坪</span>
+                    </div>
+                    <div class="far-panel">
+                        <div class="far-ph" onclick="toggleFarPanel('transfer')">
+                            <span class="text-[10px] text-slate-500">點擊展開 / 新增項目</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-black text-purple-400">總計：<span id="transferTotalPct">0</span>&thinsp;%</span>
+                                <span id="transfer-toggle-icon" class="text-[10px] text-slate-500 font-bold">＋</span>
+                            </div>
+                        </div>
+                        <div id="transfer-panel-body" class="hidden border-t border-slate-800/80 px-3 pt-2.5 pb-3">
+                            <div id="transfer-items-list" class="space-y-2 mb-2.5"></div>
+                            <button class="far-add w-full" onclick="addFarItem('transfer')">＋ 新增移入項目</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+
+        <!-- 建築量體 Card -->
+        <div class="glass p-5 shadow-xl">
+            <h2 class="sec-title"><span class="sec-bar bg-blue-500"></span>建築量體</h2>
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="lbl lbl-blue">總容積樓地版面積 (坪)</label>
+                        <input type="text" id="totalFARFloorAreaDisplay" readonly class="inp font-black text-blue-300">
+                    </div>
+                    <div>
+                        <label class="lbl lbl-blue">總樓地版面積 (坪)</label>
+                        <input type="text" id="totalFloorAreaDisplay" readonly class="inp font-black text-blue-300">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="lbl">開挖率 (%)</label>
+                        <input type="number" id="excavationRate" value="60" min="0" max="100" class="inp" oninput="this.setAttribute('data-manual-lock','1'); calculateAll();">
+                    </div>
+                    <div>
+                        <label class="lbl">地下室開挖層數</label>
+                        <input type="number" id="basementFloors" value="3" min="0" class="inp" oninput="calculateAll()">
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-slate-800/80">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-xs font-bold text-slate-300">停車位配置模式</span>
+                        <div class="flex items-center gap-2">
+                            <select id="mechanicalParkingSelect" class="inp py-1 px-1.5 text-xs bg-slate-900 border-slate-700 text-slate-200" style="width: auto;" onchange="calculateAll()">
+                                <option value="none" selected>無機械</option>
+                                <option value="enabled">機械車位</option>
+                            </select>
+                            <select id="parkingModeSelector" class="inp py-1 px-2 text-xs bg-slate-900 border-slate-700 text-slate-200" style="width: auto;" onchange="calculateAll()">
+                                <option value="all" selected>法定 + 增設</option>
+                                <option value="statutory_only">僅法定車位</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <label class="lbl mb-1 text-slate-500 font-bold">法定</label>
+                            <input type="text" id="displayStatutoryParking" readonly class="inp text-center font-bold text-slate-300">
+                        </div>
+                        <div>
+                            <label class="lbl mb-1 text-slate-500 font-bold" id="selfParkingLabel">增設</label>
+                            <input type="text" id="displaySelfParking" readonly class="inp text-center font-bold text-slate-300">
+                        </div>
+                        <div>
+                            <label class="lbl mb-1 lbl-green font-bold">合計</label>
+                            <input type="text" id="m-parkingCount" readonly class="inp text-center font-black text-emerald-300 border-emerald-800/40 bg-emerald-950/20">
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-slate-800/40 flex justify-between items-center text-xs text-slate-400">
+                        <span>戶車比 (合計/總戶數)</span>
+                        <span id="householdCarRatioDisplay" class="font-mono text-emerald-300 font-bold">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 細項規劃 Card -->
+        <div class="glass p-5 shadow-xl">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="sec-title mb-0"><span class="sec-bar bg-blue-500"></span>細項規劃</h2>
+                <button type="button" onclick="autoPlanDetailedPlanning()" class="tap px-2.5 py-1 rounded-lg text-[10px] font-black bg-gradient-to-r from-blue-600 to-indigo-600 border border-blue-500/20 text-white shadow-lg shadow-indigo-500/10 flex items-center gap-1 active:scale-95 transition-all">
+                    🪄 AI一鍵規劃
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center pb-2 border-b border-slate-800/80 mb-3">
+                    <span class="text-xs font-bold text-slate-300">標準層配置模式</span>
+                    <select id="stdFloorModeSelector" class="inp py-1 px-2 text-xs bg-slate-900 border-slate-700 text-slate-200" style="width: auto;" onchange="calculateAll()">
+                        <option value="single" selected>不平分 (原面積)</option>
+                        <option value="double">面積折半 (≧200坪除以2)</option>
+                    </select>
+                </div>
+                <div class="flex justify-between items-center pb-2 border-b border-slate-800/80 mb-3">
+                    <span class="text-xs font-bold text-slate-300">規劃棟數</span>
+                    <select id="buildingCountSelector" class="inp py-1 px-2 text-xs bg-slate-900 border-slate-700 text-slate-200" style="width: auto;" onchange="calculateAll()">
+                        <option value="1" selected>1 棟</option>
+                        <option value="2">2 棟</option>
+                        <option value="3">3 棟</option>
+                        <option value="4">4 棟</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label id="stdFloorAreaLabel" class="lbl lbl-blue mb-0">標準層面積 (坪)</label>
+                            <label class="inline-flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="stdFloorManualToggle" class="sr-only peer" onchange="toggleStdFloorManual()">
+                                <span class="text-[9px] text-slate-500 peer-checked:text-blue-300">手動微調</span>
+                                <div class="relative w-6 h-3 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-slate-400 after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-blue-500 peer-checked:after:bg-white"></div>
+                            </label>
+                        </div>
+                        <input type="text" id="stdFloorAreaDisplay" readonly class="inp font-black text-blue-300">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="lbl lbl-blue mb-0">店舖面積 (坪)</label>
+                            <label class="inline-flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="shopAreaManualToggle" class="sr-only peer" onchange="toggleShopAreaManual()">
+                                <span class="text-[9px] text-slate-500 peer-checked:text-emerald-300">手動輸入</span>
+                                <div class="relative w-6 h-3 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-slate-400 after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-white"></div>
+                            </label>
+                        </div>
+                        <input type="text" id="shopAreaDisplay" readonly class="inp font-black text-blue-300" oninput="calculateAll()">
+                    </div>
+                </div>
+                <div class="text-[10px] text-slate-500 mt-0.5 pl-0.5">
+                    * 已含梯廳+機電面積
+                </div>
+                <!-- Slider container inside 細項規劃 Card -->
+                <div id="stdFloorSliderContainer" class="hidden p-3 bg-slate-900/40 rounded-xl border border-slate-800/80 space-y-2">
+                    <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                        <span>標準層面積手動微調</span>
+                        <span id="stdFloorSliderVal" class="text-blue-400">-- 坪</span>
+                    </div>
+                    <input type="range" id="stdFloorSlider" min="5" max="300" step="0.1" class="w-full accent-blue-500 cursor-pointer" oninput="onStdFloorSliderChange()">
+                    <div class="flex justify-between text-[9px] text-slate-500">
+                        <span>最小: <span id="stdFloorSliderMinText">5</span> 坪</span>
+                        <span>最大: <span id="stdFloorSliderMaxText">300</span> 坪</span>
+                    </div>
+                    <button class="w-full py-1 px-3 rounded-lg text-xs font-bold bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/20 transition-all flex items-center justify-center gap-1 mt-1" onclick="optimizeStdFloorArea()">
+                        🪄 一鍵最佳化 (自動消除剩餘容積)
+                    </button>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 0.75rem;" class="mt-3">
+                    <div>
+                        <label class="lbl lbl-blue">梯廳 (%)</label>
+                        <input type="number" id="lobbyRatio" value="5" min="0" max="15" step="0.1" class="inp text-center text-blue-300 font-black" oninput="calculateAll()">
+                    </div>
+                    <div>
+                        <label class="lbl lbl-blue">陽台 (%)</label>
+                        <input type="number" id="balconyRatio" value="10" min="0" max="15" step="0.1" class="inp text-center text-blue-300 font-black" oninput="calculateAll()">
+                    </div>
+                    <div>
+                        <label class="lbl lbl-blue">高層/非高層</label>
+                        <input type="text" id="highRiseType" value="非高層" readonly class="inp text-center text-amber-300 font-black" style="opacity: 0.85;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1.3fr 0.7fr; gap: 0.75rem;" class="mt-3">
+                    <div>
+                        <label class="lbl lbl-blue">樓層數評估</label>
+                        <div id="floorCountAssessmentDisplay" class="inp flex items-center justify-center text-center font-black text-blue-300 text-xs" style="height: 48px; padding: 0 0.25rem; opacity: 0.55;">0 層</div>
+                    </div>
+                    <div>
+                        <label class="lbl lbl-blue">剩餘容積 (坪)</label>
+                        <div id="remainingFarDisplay" class="inp flex items-center justify-center text-center font-black text-blue-300 text-xs" style="height: 48px; padding: 0 0.5rem; opacity: 0.55;">0.0 坪</div>
+                    </div>
+                </div>
+                <!-- 標準層戶型規劃區塊 -->
+                <div class="mt-4 pt-4 border-t border-slate-700/50 space-y-3">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="lbl lbl-blue mb-0 flex items-center gap-1.5">
+                            <span>標準層戶型規劃</span>
+                            <span id="unitAreaWarning" class="text-xs font-bold transition-all duration-300"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="far-panel">
+                        <div class="far-ph" onclick="toggleUnitLayoutsPanel()">
+                            <span class="text-[10px] text-slate-500">點擊展開 / 規劃戶型項目</span>
+                            <div class="flex items-center gap-2">
+                                <span id="unitLayoutsSummaryText" class="text-blue-400 text-[10px] font-bold">(0戶 / 0戶)</span>
+                                <span id="unit-layouts-toggle-icon" class="text-[10px] text-slate-500 font-bold">＋</span>
+                            </div>
+                        </div>
+                        <div id="unit-layouts-panel-body" class="hidden border-t border-slate-800/80 px-3 pt-2.5 pb-3">
+                            <!-- 戶型列表容器 -->
+                            <div id="unitTypesContainer" class="space-y-2 max-h-[160px] overflow-y-auto pr-1 mb-2.5"></div>
+                            
+                            <!-- 新增按鈕 -->
+                            <button type="button" class="far-add w-full" onclick="addUnitTypeRow()">＋ 新增戶型項目</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode-specific section (Moved to RESULT/CALCULATION tab) -->
+    </div>
+
+    <!-- ② 營建分析 -->
+    <div id="tab-construction" class="tab-panel hidden space-y-4">
+
+        <div class="glass p-5 shadow-xl border-t border-sky-500/30">
+            <h2 class="sec-title"><span class="sec-bar bg-sky-500"></span>營建成本矩陣分析</h2>
+
+
+
+            <div class="space-y-4">
+                <div>
+                    <p class="grp-title">標章與屬性</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="lbl">建築用途</label>
+                            <select id="c-buildingType" class="inp" onchange="calcMatrix(); calculateAll();">
+                                <option value="residential">集合住宅</option>
+                                <option value="office">辦公大樓</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="lbl">外牆形式</label>
+                            <select id="c-facadeType" class="inp" onchange="calcMatrix()">
+                                <option value="0">一般磁磚</option>
+                                <option value="0.01">石材外牆 (+1%)</option>
+                                <option value="0.03">帷幕外牆 (+3%)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="lbl">單層戶數</label>
+                            <select id="c-unitDensity" class="inp" onchange="calcMatrix()">
+                                <option value="0">標準 4戶</option>
+                                <option value="0.02">多戶 8戶 (+2%)</option>
+                                <option value="0.04">超多 12戶+ (+4%)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="lbl">產品定位</label>
+                            <select id="c-brandLevel" class="inp" onchange="calcMatrix()">
+                                <option value="0.85">效益型</option>
+                                <option value="1.0" selected>標準型</option>
+                                <option value="1.2">旗艦型</option>
+                                <option value="1.4">豪宅級</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="lbl">智慧建築標章</label>
+                            <select id="c-smartLevel" class="inp" onchange="calcMatrix()">
+                                <option value="0">無標章</option>
+                                <option value="0.01">銀級 (+1%)</option>
+                                <option value="0.03">黃金級 (+3%)</option>
+                                <option value="0.05">鑽石級 (+5%)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="lbl">綠建築標章</label>
+                            <select id="c-greenLevel" class="inp" onchange="calcMatrix()">
+                                <option value="0">無標章</option>
+                                <option value="0.02">銅/銀級 (+2%)</option>
+                                <option value="0.04">黃金級 (+4%)</option>
+                                <option value="0.07">鑽石級 (+7%)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="grp-title">結構構造</p>
+                    <div class="flex gap-2 mb-3">
+                        <button onclick="setStruct('RC')"  id="btnRC"  class="struct-btn active">RC</button>
+                        <button onclick="setStruct('SRC')" id="btnSRC" class="struct-btn">SRC</button>
+                        <button onclick="setStruct('SC')"  id="btnSC"  class="struct-btn">SC</button>
+                        <button onclick="setStruct('SS')"  id="btnSS"  class="struct-btn">SS</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="lbl">耐震設計等級</label>
+                            <select id="c-seismicLevel" class="inp" onchange="calcMatrix()">
+                                <option value="none">無標章</option>
+                                <option value="label">耐震標章</option>
+                                <option value="lv1">第一級 (x1.25)</option>
+                                <option value="lv2">第二級 (x1.2)</option>
+                                <option value="lv3">第三級 (x1.1)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="lbl">預估工期 (月)</label>
+                            <input type="number" id="c-constMonths" value="36" class="inp" oninput="onScheduleManualInput()">
+                        </div>
+                    </div>
+
+                    <!-- 智慧工期預估 (依標準對照表) -->
+                    <button type="button" onclick="toggleSchedulePanel()" class="tap w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-black rounded-xl text-sm shadow-lg shadow-sky-900/40 transition-all flex items-center justify-center gap-2 mt-3">
+                        ⚡ 💡 智慧工期預估 (依標準對照表) <span id="schedulePanelChevron" class="text-xs transition-transform duration-300">▼</span>
+                    </button>
+                    
+                    <div id="schedulePanelBody" class="hidden mt-2 bg-slate-800/40 rounded-xl border border-slate-700/50 p-3.5 space-y-3">
+                        <div class="grid grid-cols-2 gap-2 text-[10px]">
+                            <button onclick="applyConstructionStandard('7F_B1F_RC')" type="button" class="tap px-2.5 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-700/80 transition-all font-black text-center">7F/B1F (RC) - 19.5月</button>
+                            <button onclick="applyConstructionStandard('12F_B2F_RC')" type="button" class="tap px-2.5 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-700/80 transition-all font-black text-center">12F/B2F (RC) - 24.8月</button>
+                            <button onclick="applyConstructionStandard('14F_B3F_RC')" type="button" class="tap px-2.5 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-700/80 transition-all font-black text-center">14F/B3F (RC) - 31.5月</button>
+                            <button onclick="applyConstructionStandard('20F_B4F_RC')" type="button" class="tap px-2.5 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-700/80 transition-all font-black text-center">20F/B4F (RC) - 37.6月</button>
+                            <button onclick="applyConstructionStandard('25F_B4F_RC')" type="button" class="tap px-2.5 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-700/80 transition-all font-black text-center">25F/B4F (RC) - 40.1月</button>
+                            <button onclick="applyConstructionStandard('29F_B4F_SRC')" type="button" class="tap px-2.5 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-700/80 transition-all font-black text-center">29F/B4F (SRC) - 45.8月</button>
+                        </div>
+                        <button onclick="autoMatchConstructionStandard()" type="button" class="tap w-full py-2 bg-gradient-to-r from-sky-600 to-indigo-600 border border-sky-500/20 text-white rounded-lg text-xs font-black flex items-center justify-center gap-1.5 shadow-md">
+                            💡 🤖 依規劃層數與構造自動匹配
+                        </button>
+                        
+                        <div id="scheduleStandardDetails" class="hidden bg-slate-900/40 rounded-xl p-3 border border-slate-800/80 space-y-2 text-xs">
+                            <div class="flex justify-between items-center mb-1 pb-1 border-b border-slate-800/80">
+                                <span class="text-[10px] text-slate-400 font-bold">已套用對照案型：</span>
+                                <span id="activeStandardLabel" class="text-xs font-black text-sky-400">--</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                                <div class="flex justify-between"><span class="text-slate-500">申報放樣：</span><span id="std_signing" class="font-mono text-slate-200">--</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">連續壁：</span><span id="std_slurry" class="font-mono text-slate-200">--</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">土方開挖：</span><span id="std_excav" class="font-mono text-slate-200">--</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">地下結構：</span><span id="std_bsmt" class="font-mono text-slate-200">--</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">地上結構：</span><span id="std_above" class="font-mono text-slate-200">--</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">內部裝修：</span><span id="std_deco" class="font-mono text-slate-200">--</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">使照請照：</span><span id="std_license" class="font-mono text-slate-200">--</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">細部查驗：</span><span id="std_inspect" class="font-mono text-slate-200">--</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">交屋驗收：</span><span id="std_handover" class="font-mono text-slate-200">--</span></div>
+                            </div>
+                            <p class="text-[9px] text-slate-500 leading-normal mt-2 border-t border-slate-800/80 pt-1.5">
+                                註：上表為各階段之工程日曆天數。此判定已依優化規則修正：當設計樓層 ≦ 25 樓時，SRC/SC/SS 構造自動匹配 RC 案型並乘以結構調整係數（SRC 1.09倍、SC/SS 1.05倍）；超過 25 樓或選定超高樓層則使用 29F/B4F (SRC) 案型。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="grp-title">規模參數</p>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <div class="flex items-center gap-2">
+                            <label class="lbl mb-0">總樓層高度</label>
+                            <label class="inline-flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="floorsManualToggle" class="sr-only peer" onchange="toggleFloorsManual()">
+                                <span class="text-[9px] text-slate-500 peer-checked:text-sky-300">手動調整</span>
+                                <div class="relative w-6 h-3 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-slate-400 after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-sky-500 peer-checked:after:bg-white"></div>
+                            </label>
+                        </div>
+                        <span id="c-floorValue" class="text-sky-400 font-black text-lg normal-case">15 F</span>
+                    </div>
+                    <input type="range" id="c-floors" min="1" max="50" value="15" step="1" class="w-full h-2 rounded-full bg-slate-700 appearance-none cursor-pointer mb-3" oninput="calcMatrix()" disabled style="opacity: 0.55; pointer-events: none;">
+
+                    <div id="c-structWarning" class="hidden mb-3 p-2 rounded-lg border text-xs"></div>
+
+                    <div>
+                        <label class="lbl">基地規模修正</label>
+                        <select id="c-siteScale" class="inp" onchange="calcMatrix()">
+                            <option value="1.15">小基地 (100坪以下)</option>
+                            <option value="1.05">中基地 (100-300坪)</option>
+                            <option value="1.0" selected>一般基地 (300-500坪)</option>
+                            <option value="0.95">大基地 (500坪以上)</option>
+                        </select>
+                    </div>
+
+                    <!-- Auto totalGFA -->
+                    <div class="mt-3 p-3 bg-sky-900/20 rounded-xl border border-sky-800/40 flex justify-between items-center">
+                        <span class="text-xs text-sky-400 font-bold">總樓地板面積（自動帶入）</span>
+                        <div class="flex items-baseline gap-1">
+                            <span id="c-totalGFA" class="text-xl font-black text-sky-300">--</span>
+                            <span class="text-xs text-slate-400">坪</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Matrix output -->
+        <div class="glass p-5 shadow-xl border-t border-sky-500/20">
+            <h2 class="sec-title"><span class="sec-bar bg-sky-400"></span>造價試算結果</h2>
+            <div class="flex items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-slate-800 mb-4 gap-2">
+                <label class="text-sm text-slate-300 font-bold flex items-center gap-1">📈 物價調整比例</label>
+                <div class="flex items-center gap-1.5">
+                    <input type="number" id="c-costInflation" oninput="calcMatrix()" value="0" min="-50" max="100" class="inp text-center w-20 text-sm bg-slate-950 border-slate-800 text-sky-400 font-black rounded-lg py-1.5 px-2.5" />
+                    <span class="text-sm text-slate-300">%</span>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="kpi bg-sky-900/25 border border-sky-800/40 text-center">
+                    <p class="text-[9px] text-slate-400 uppercase font-bold">單坪造價</p>
+                    <div class="flex items-baseline justify-center gap-0.5 mt-1">
+                        <span id="c-unitCost" class="text-xl font-black text-sky-300">--</span>
+                        <span class="text-xs text-slate-400">萬/坪</span>
+                    </div>
+                </div>
+                <div class="kpi bg-slate-800/50 border border-slate-700/40 text-center">
+                    <p class="text-[9px] text-slate-400 uppercase font-bold">機電佔比</p>
+                    <div class="flex items-baseline justify-center gap-0.5 mt-1">
+                        <span id="c-mepRatio" class="text-xl font-black text-amber-300">--</span>
+                        <span class="text-xs text-slate-400">%</span>
+                    </div>
+                </div>
+                <div class="kpi bg-rose-900/20 border border-rose-800/40 text-center">
+                    <p class="text-[9px] text-rose-400 uppercase font-bold">全案總造價</p>
+                    <div class="flex items-baseline justify-center gap-0.5 mt-1">
+                        <span id="c-totalCostOkun" class="text-xl font-black text-white">--</span>
+                        <span class="text-xs text-slate-400">億</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Struct warning -->
+
+            <!-- Apply button -->
+            <button onclick="applyMatrixCost()" class="tap w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-black rounded-xl text-sm shadow-lg shadow-sky-900/40 transition-all flex items-center justify-center gap-2">
+                ⚙️ 套用此造價至主試算
+            </button>
+            <p class="text-[10px] text-slate-500 text-center mt-2">套用後，土地頁的「營造單價」將自動更新</p>
+        </div>
+
+        <!-- Cost trend chart -->
+        <div class="glass p-5 shadow-xl">
+            <div class="flex justify-between items-center cursor-pointer select-none" onclick="toggleCostChartPanel()">
+                <h2 class="sec-title mb-0"><span class="sec-bar bg-sky-500"></span>構造造價趨勢圖</h2>
+                <span id="costChartPanelChevron" class="text-slate-400 text-xs transition-transform duration-300" style="transform: rotate(180deg)">▼</span>
+            </div>
+            <div id="costChartPanelBody" class="mt-4">
+                <div style="height:280px"><canvas id="costChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Cost breakdown table -->
+        <div class="glass shadow-xl overflow-hidden">
+            <div class="px-5 pt-5 pb-3 flex justify-between items-center cursor-pointer select-none" onclick="toggleCostTablePanel()">
+                <h2 class="sec-title mb-0"><span class="sec-bar bg-sky-500"></span>細項成本階梯</h2>
+                <span id="costTablePanelChevron" class="text-slate-400 text-xs transition-transform duration-300" style="transform: rotate(180deg)">▼</span>
+            </div>
+            <div id="costTablePanelBody" class="overflow-x-auto">
+                <table class="w-full text-xs min-w-[480px]">
+                    <thead class="bg-slate-800/70">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-slate-400 font-bold">項目</th>
+                            <th class="px-4 py-3 text-left text-slate-500 font-bold text-[10px]">說明</th>
+                            <th class="px-4 py-3 text-right text-sky-400 font-bold">萬/坪</th>
+                            <th class="px-4 py-3 text-right text-rose-400 font-bold">總額(萬)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="costTable" class="divide-y divide-slate-800"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ③ 市場售價 -->
+    <div id="tab-market" class="tab-panel hidden space-y-4">
+
+        <!-- ════ 周邂行情查詢 Card ════ -->
+        <details class="group glass shadow-xl border-t border-violet-500/30 overflow-hidden block" open>
+            <summary class="p-5 cursor-pointer select-none flex justify-between items-center bg-slate-900/10">
+                <div class="flex items-center gap-2">
+                    <h2 class="sec-title mb-0"><span class="sec-bar bg-violet-500"></span>周邂行情查詢</h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="mq-mode-badge" class="pill bg-slate-700 text-slate-400 border border-slate-600 text-[9px]">手動模式</span>
+                    <svg class="h-5 w-5 transform group-open:rotate-180 transition-transform text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </summary>
+            
+            <div class="px-5 pb-5">
+
+
+            <!-- No API key hint -->
+            <div id="mq-no-key-hint" class="p-2.5 mb-3 rounded-xl bg-amber-900/20 border border-amber-800/30">
+                <p class="text-[10px] text-amber-300 font-bold">⚠ 未設定 API Key — 目前為手動模式</p>
+                <p class="text-[10px] text-slate-500 mt-0.5 leading-relaxed">AI 智慧查詢需要 Gemini API Key（免費）。請前往「✨ AI」頁面設定。</p>
+                <a href="https://aistudio.google.com/apikey" target="_blank" class="text-[10px] text-violet-400 font-bold">→ 前往 Google AI Studio 免費申請 API Key ↗</a>
+            </div>
+
+            <!-- Query Buttons -->
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button id="mq-ai-btn" onclick="fetchPriceAI()" class="tap py-3 rounded-xl text-xs font-black flex items-center justify-center gap-1 bg-violet-700 text-white opacity-50">
+                    🤖 AI 智慧查詢
+                </button>
+                <button onclick="openManualSearch()" class="tap py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1 bg-slate-700/80 border border-slate-600 text-slate-200">
+                    🔗 手動查詢
+                </button>
+            </div>
+
+            <!-- Loading -->
+            <div id="mq-loading" style="display:none" class="flex flex-col items-center py-6">
+                <div class="animate-spin rounded-full h-7 w-7 border-t-2 border-b-2 border-violet-500 mb-2"></div>
+                <p class="text-[10px] text-slate-400 animate-pulse tracking-widest">正在搜尋周邂行情…</p>
+            </div>
+
+            <!-- AI Results -->
+            <div id="mq-results" class="hidden">
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div class="p-3 rounded-xl bg-blue-900/20 border border-blue-800/40 text-center">
+                        <p class="text-[11px] text-blue-400 font-bold">🏠 住宅</p>
+                        <p class="mt-0.5"><span id="mq-residential" class="text-lg font-black text-blue-300">--</span><span class="text-[10px] text-slate-500"> 萬/坪</span></p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-purple-900/20 border border-purple-800/40 text-center">
+                        <p class="text-[11px] text-purple-400 font-bold">🏢 辦公</p>
+                        <p class="mt-0.5"><span id="mq-office" class="text-lg font-black text-purple-300">--</span><span class="text-[10px] text-slate-500"> 萬/坪</span></p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-amber-900/20 border border-amber-800/40 text-center">
+                        <p class="text-[11px] text-amber-400 font-bold">🏪 店面</p>
+                        <p class="mt-0.5"><span id="mq-retail" class="text-lg font-black text-amber-300">--</span><span class="text-[10px] text-slate-500"> 萬/坪</span></p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 text-center">
+                        <p class="text-[11px] text-slate-400 font-bold">🚗 車位</p>
+                        <p class="mt-0.5"><span id="mq-parking" class="text-lg font-black text-slate-300">--</span><span class="text-[10px] text-slate-500"> 萬/個</span></p>
+                    </div>
+                </div>
+                <div class="px-3 py-2 bg-slate-800/40 rounded-xl border border-slate-700/30 mb-3">
+                    <p class="text-xs text-slate-400">📅&thinsp;<span id="mq-period">--</span>&emsp;| 📌&thinsp;<span id="mq-sources">--</span></p>
+                    <p id="mq-notes" class="text-xs text-slate-300 mt-1 italic"></p>
+                    <p class="text-[10px] text-amber-600/90 mt-1.5 font-bold">※ AI 搜尋結果為參考均價，實際成交請以現場調查為準</p>
+                </div>
+                <button id="btn-applyMarketPrice" onclick="applyMarketPrice()" class="tap w-full py-3 bg-emerald-600/80 border border-emerald-500/40 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2">
+                    ⬆ 套用住宅均價至推案單價
+                </button>
+            </div>
+
+            <!-- Manual Mode -->
+            <div id="mq-manual" class="hidden">
+                <p class="grp-title mb-2">外部查詢連結（點擊開啟後手動填入）</p>
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <button onclick="_mq.open591()" class="tap py-2.5 rounded-xl text-[11px] font-bold bg-orange-900/25 border border-orange-700/40 text-orange-300">🏠 591 房屋</button>
+                    <button onclick="_mq.openLeju()" class="tap py-2.5 rounded-xl text-[11px] font-bold bg-green-900/25 border border-green-700/40 text-green-300">🏡 樂居</button>
+                    <button onclick="_mq.openLvr()" class="tap py-2.5 rounded-xl text-[11px] font-bold bg-blue-900/25 border border-blue-700/40 text-blue-300">📋 實價登錄</button>
+                    <button onclick="_mq.openGoogle()" class="tap py-2.5 rounded-xl text-[11px] font-bold bg-slate-700/60 border border-slate-600 text-slate-300">🔍 Google</button>
+                </div>
+                <p class="grp-title mb-2">手動輸入參考行情</p>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div><label class="lbl">🏠 住宅 (萬/坪)</label><input type="number" id="mq-m-res" value="60" placeholder="0" class="inp text-sm" oninput="calculateAll()"></div>
+                    <div><label class="lbl">🏢 辦公 (萬/坪)</label><input type="number" id="mq-m-off" value="60" placeholder="0" class="inp text-sm" oninput="calculateAll()"></div>
+                    <div><label class="lbl">🏪 店面 (萬/坪)</label><input type="number" id="mq-m-ret" value="90" placeholder="0" class="inp text-sm" oninput="calculateAll()"></div>
+                    <div><label class="lbl flex justify-between items-center"><span>🚗 車位 (萬/個)</span><span id="mq-m-park-count-span" class="text-sky-400 font-mono font-bold">共 -- 輛</span></label><input type="number" id="mq-m-park" value="150" placeholder="0" class="inp text-sm" oninput="document.getElementById('m-parkingPrice').value = this.value; calculateAll();"></div>
+                </div>
+                <p class="text-[9px] text-slate-600 mb-2">※ 手動模式：請自行查詢上方連結後填入參考價，不需要 API Key</p>
+                <button id="btn-applyManualMarketPrice" onclick="applyManualMarketPrice()" class="tap w-full py-3 bg-emerald-600/80 border border-emerald-500/40 text-white font-black rounded-xl text-xs">
+                    ⬆ 套用住宅均價至推案單價
+                </button>
+            </div>
+        </div>
+    </details>
+
+        <!-- ════ 鄰近市場售價交叉分析 Card ════ -->
+        <details class="group glass shadow-xl border-t border-purple-500/30 overflow-hidden block" open>
+            <summary class="p-5 cursor-pointer select-none flex justify-between items-center bg-slate-900/10">
+                <div>
+                    <h2 class="sec-title mb-1 flex items-center gap-1"><span class="sec-bar bg-purple-500"></span>鄰近市場售價交叉分析</h2>
+                    <p class="text-[10px] text-slate-400 leading-normal">針對基地位置與周邊行情進行多平台比對與定價策略評估。</p>
+                </div>
+                <svg class="h-5 w-5 transform group-open:rotate-180 transition-transform text-slate-400 shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </summary>
+            
+            <div class="px-5 pb-5 space-y-4">
+                <!-- 調查半徑 -->
+                <div>
+                    <label class="lbl">市場調查半徑 (公里)</label>
+                    <input type="number" id="cross-radius" value="1.0" step="0.1" min="0.1" class="inp text-sm">
+                </div>
+
+                <!-- 周邊行情數據登錄 -->
+                <div class="border-t border-slate-700/30 pt-3">
+                    <p class="text-xs font-bold text-purple-300 mb-2">📊 周邊行情數據登錄</p>
+                    
+                    <div class="space-y-3">
+                        <!-- 住宅大樓 -->
+                        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-800/60">
+                            <p class="text-[11px] text-blue-400 font-bold mb-2">🏠 住宅大樓 (萬/坪)</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="lbl text-[10px]">實價登錄均價</label>
+                                    <input type="number" id="cross-res-lvr" value="55" class="inp text-xs" oninput="calculateCrossAnalysis()">
+                                </div>
+                                <div>
+                                    <label class="lbl text-[10px]">591/樂居開價</label>
+                                    <input type="number" id="cross-res-ask" value="65" class="inp text-xs" oninput="calculateCrossAnalysis()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 辦公大樓 -->
+                        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-800/60">
+                            <p class="text-[11px] text-purple-400 font-bold mb-2">🏢 辦公大樓 (萬/坪)</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="lbl text-[10px]">實價登錄均價</label>
+                                    <input type="number" id="cross-off-lvr" value="50" class="inp text-xs" oninput="calculateCrossAnalysis()">
+                                </div>
+                                <div>
+                                    <label class="lbl text-[10px]">591待售開價</label>
+                                    <input type="number" id="cross-off-ask" value="58" class="inp text-xs" oninput="calculateCrossAnalysis()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 一樓店面 -->
+                        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-800/60">
+                            <p class="text-[11px] text-amber-400 font-bold mb-2">🏪 一樓店面 (萬/坪)</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="lbl text-[10px]">實價登錄均價</label>
+                                    <input type="number" id="cross-ret-lvr" value="85" class="inp text-xs" oninput="calculateCrossAnalysis()">
+                                </div>
+                                <div>
+                                    <label class="lbl text-[10px]">591待售行情</label>
+                                    <input type="number" id="cross-ret-ask" value="100" class="inp text-xs" oninput="calculateCrossAnalysis()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 平面車位 -->
+                        <div class="p-3 bg-slate-900/30 rounded-xl border border-slate-800/60">
+                            <p class="text-[11px] text-slate-400 font-bold mb-2">🚗 平面車位 (萬/個)</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="lbl text-[10px]">實價登錄均價</label>
+                                    <input type="number" id="cross-park-lvr" value="230" class="inp text-xs" oninput="calculateCrossAnalysis()">
+                                </div>
+                                <div>
+                                    <label class="lbl text-[10px]">591開價行情</label>
+                                    <input type="number" id="cross-park-ask" value="260" class="inp text-xs" oninput="calculateCrossAnalysis()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 定價策略與推薦售價 -->
+                <div class="border-t border-slate-700/30 pt-3">
+                    <p class="text-xs font-bold text-purple-300 mb-2">⚖ 定價策略與權重比率</p>
+                    <div class="mb-3">
+                        <select id="cross-strategy" class="inp text-xs" onchange="calculateCrossAnalysis()">
+                            <option value="conservative">保守策略 (70% 實價登錄 + 30% 待售行情)</option>
+                            <option value="balanced" selected>均衡策略 (50% 實價登錄 + 50% 待售行情)</option>
+                            <option value="aggressive">積極策略 (30% 實價登錄 + 70% 待售行情)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="p-4 bg-purple-950/20 border border-purple-800/40 rounded-xl space-y-2">
+                        <p class="text-[10px] text-purple-300 font-black tracking-wider mb-2">🎯 交叉分析推薦售價</p>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
+                                <span class="text-slate-400">🏠 住宅大樓：</span>
+                                <span class="font-bold text-blue-300"><span id="cross-res-rec">58.0</span> 萬/坪</span>
+                            </div>
+                            <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
+                                <span class="text-slate-400">🏢 辦公大樓：</span>
+                                <span class="font-bold text-purple-300"><span id="cross-off-rec">52.4</span> 萬/坪</span>
+                            </div>
+                            <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
+                                <span class="text-slate-400">🏪 一樓店面：</span>
+                                <span class="font-bold text-amber-300"><span id="cross-ret-rec">89.5</span> 萬/坪</span>
+                            </div>
+                            <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
+                                <span class="text-slate-400">🚗 平面車位：</span>
+                                <span class="font-bold text-slate-300"><span id="cross-park-rec">239</span> 萬/個</span>
+                            </div>
+                        </div>
+                        <button onclick="applyCrossRecommended()" class="tap w-full mt-3 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 border border-blue-500/20 text-white rounded-lg text-xs font-black shadow-md flex items-center justify-center gap-1.5">
+                            📥 套用推薦售價至本專案定價
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 鄰近銷售個案對照 (Collapsible) -->
+                <details class="group bg-slate-900/30 rounded-xl border border-slate-800/60 overflow-hidden mt-3">
+                    <summary class="p-3 cursor-pointer font-bold text-xs text-slate-300 flex justify-between items-center select-none bg-slate-800/30">
+                        <span>🔍 鄰近銷售個案參考 (點擊展開)</span>
+                        <svg class="h-4 w-4 transform group-open:rotate-180 transition-transform text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </summary>
+                    <div class="p-3 space-y-4 border-t border-slate-800/60">
+                        <!-- 住宅個案 A -->
+                        <div class="p-2.5 bg-slate-950/20 border border-slate-800 rounded-lg">
+                            <p class="text-[10px] text-blue-400 font-bold mb-1.5">🏠 住宅個案 A</p>
+                            <div class="grid grid-cols-3 gap-1.5 mb-2">
+                                <div class="col-span-3">
+                                    <label class="text-[9px] text-slate-500">個案名稱</label>
+                                    <input type="text" id="case-res-name" value="東村齊云" class="inp text-[11px] py-1 px-2 h-7">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-slate-500">銷售面積 (坪)</label>
+                                    <input type="number" id="case-res-area" value="45.2" step="0.1" class="inp text-[11px] py-1 px-2 h-7" oninput="calculateCasePrice('res')">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-slate-500">銷售總價 (萬)</label>
+                                    <input type="number" id="case-res-total" value="2938" class="inp text-[11px] py-1 px-2 h-7" oninput="calculateCasePrice('res')">
+                                </div>
+                                <div class="flex flex-col justify-end text-right">
+                                    <span class="text-[9px] text-slate-500 leading-none">換算單價</span>
+                                    <span class="text-xs font-bold text-blue-300 font-mono mt-0.5"><span id="case-res-price">65.0</span> 萬/坪</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 店面個案 B -->
+                        <div class="p-2.5 bg-slate-950/20 border border-slate-800 rounded-lg">
+                            <p class="text-[10px] text-amber-400 font-bold mb-1.5">🏪 店面個案 B</p>
+                            <div class="grid grid-cols-3 gap-1.5 mb-2">
+                                <div class="col-span-3">
+                                    <label class="text-[9px] text-slate-500">個案名稱</label>
+                                    <input type="text" id="case-ret-name" value="中原路金座" class="inp text-[11px] py-1 px-2 h-7">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-slate-500">銷售面積 (坪)</label>
+                                    <input type="number" id="case-ret-area" value="55.8" step="0.1" class="inp text-[11px] py-1 px-2 h-7" oninput="calculateCasePrice('ret')">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-slate-500">銷售總價 (萬)</label>
+                                    <input type="number" id="case-ret-total" value="5580" class="inp text-[11px] py-1 px-2 h-7" oninput="calculateCasePrice('ret')">
+                                </div>
+                                <div class="flex flex-col justify-end text-right">
+                                    <span class="text-[9px] text-slate-500 leading-none">換算單價</span>
+                                    <span class="text-xs font-bold text-amber-300 font-mono mt-0.5"><span id="case-ret-price">100.0</span> 萬/坪</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 車位個案 C -->
+                        <div class="p-2.5 bg-slate-950/20 border border-slate-800 rounded-lg">
+                            <p class="text-[10px] text-slate-400 font-bold mb-1.5">🚗 車位個案 C</p>
+                            <div class="grid grid-cols-3 gap-1.5 mb-2">
+                                <div class="col-span-3">
+                                    <label class="text-[9px] text-slate-500">個案名稱</label>
+                                    <input type="text" id="case-park-name" value="中原一街平面車位" class="inp text-[11px] py-1 px-2 h-7">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-slate-500">車位個數 (個)</label>
+                                    <input type="number" id="case-park-count" value="2" class="inp text-[11px] py-1 px-2 h-7" oninput="calculateCasePrice('park')">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-slate-500">銷售總價 (萬)</label>
+                                    <input type="number" id="case-park-total" value="520" class="inp text-[11px] py-1 px-2 h-7" oninput="calculateCasePrice('park')">
+                                </div>
+                                <div class="flex flex-col justify-end text-right">
+                                    <span class="text-[9px] text-slate-500 leading-none">平均單價</span>
+                                    <span class="text-xs font-bold text-slate-300 font-mono mt-0.5"><span id="case-park-price">260</span> 萬/個</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </details>
+
+        <div class="glass p-5 shadow-xl border-t border-emerald-500/30 hidden">
+            <h2 class="sec-title"><span class="sec-bar bg-emerald-500"></span>市場售價設定</h2>
+
+
+
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="lbl">可銷售坪數（自動）</label>
+                        <input type="text" id="m-saleableArea" readonly class="inp text-emerald-300 font-black">
+                    </div>
+                    <div>
+                        <label class="lbl lbl-green">預計銷售率 (%)</label>
+                        <input type="number" id="m-soldRatio" value="90" readonly class="inp bg-slate-800/50 text-slate-400 cursor-not-allowed font-black text-emerald-300">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="lbl lbl-green">停車位售價 (萬/個)</label>
+                        <input type="number" id="m-parkingPrice" value="150" min="0" step="10" class="inp" oninput="document.getElementById('mq-m-park').value = this.value; calculateAll();">
+                    </div>
+                    <div>
+                        <label class="lbl">停車位數合計</label>
+                        <input type="text" id="m-parkingCountDisplay" readonly class="inp font-black text-emerald-300 border-emerald-800/40 bg-emerald-950/20">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="grid grid-cols-2 gap-3">
+            <div class="kpi glass border-emerald-800/30 text-center">
+                <p class="text-[9px] text-slate-400 uppercase font-bold">可銷售坪數</p>
+                <div class="flex items-baseline justify-center gap-0.5 mt-1">
+                    <span id="m-kpi-saleArea" class="text-xl font-black text-emerald-300">--</span>
+                    <span class="text-xs text-slate-400">坪</span>
+                </div>
+            </div>
+            <div class="kpi glass border-sky-800/30 text-center">
+                <p class="text-[9px] text-slate-400 uppercase font-bold">停車位收益</p>
+                <div class="flex items-baseline justify-center gap-0.5 mt-1">
+                    <span id="m-kpi-parking" class="text-xl font-black text-sky-300">--</span>
+                    <span class="text-xs text-slate-400">萬</span>
+                </div>
+            </div>
+            <div class="kpi glass border-emerald-800/30 text-center">
+                <p id="m-kpi-res-area-label" class="text-[9px] text-emerald-400 uppercase font-bold">住宅銷坪</p>
+                <div class="flex items-baseline justify-center gap-0.5 mt-1">
+                    <span id="m-kpi-res-area" class="text-xl font-black text-emerald-300">--</span>
+                    <span class="text-xs text-slate-400">坪</span>
+                </div>
+            </div>
+            <div class="kpi glass border-emerald-800/30 text-center">
+                <p class="text-[9px] text-emerald-400 uppercase font-bold">店舖銷坪</p>
+                <div class="flex items-baseline justify-center gap-0.5 mt-1">
+                    <span id="m-kpi-shop-area" class="text-xl font-black text-emerald-300">--</span>
+                    <span class="text-xs text-slate-400">坪</span>
+                </div>
+            </div>
+            <div class="kpi glass border-emerald-800/30 text-center">
+                <p id="m-kpi-revenue-label" class="text-[9px] text-emerald-400 uppercase font-bold">住宅銷售收益</p>
+                <div class="flex items-baseline justify-center gap-0.5 mt-1">
+                    <span id="m-kpi-revenue" class="text-xl font-black text-emerald-300">--</span>
+                    <span class="text-xs text-slate-400">萬</span>
+                </div>
+            </div>
+            <div class="kpi glass border-emerald-800/30 text-center">
+                <p class="text-[9px] text-emerald-400 uppercase font-bold">店舖銷售收益</p>
+                <div class="flex items-baseline justify-center gap-0.5 mt-1">
+                    <span id="m-kpi-shop-revenue" class="text-xl font-black text-emerald-300">--</span>
+                    <span class="text-xs text-slate-400">萬</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- BEP bar -->
+        <div class="glass p-5 shadow-xl">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold">📊 損益平衡點分析</h3>
+                <span id="m-bepStatusPill" class="pill bg-slate-700 text-slate-400 border border-slate-600">計算中</span>
+            </div>
+            <div class="mb-3 flex justify-center gap-12 text-sm text-slate-300 font-medium">
+                <span>BEP：<span id="m-bepLabel" class="text-base font-black text-amber-400 font-mono">--</span> 萬/坪</span>
+                <span>預計銷售率：<span id="m-bepSliderVal" class="text-base font-black text-blue-400 font-mono">90%</span></span>
+                <span id="m-priceLabel" class="hidden">--</span>
+            </div>
+            <input type="range" id="m-bepBar" min="0" max="100" step="1" value="90" class="w-full accent-emerald-500 cursor-pointer" oninput="onBepBarSliderInput(this.value)">
+            <p id="m-bepHint" class="text-xs text-slate-400 mt-2">請確認推案單價以啟動分析</p>
+        </div>
+
+        <!-- Price vs cost chart -->
+        <div class="glass p-5 shadow-xl hidden">
+            <h3 class="text-sm font-bold mb-4">📈 售價 vs 成本對比</h3>
+            <div style="height:240px"><canvas id="marketChart"></canvas></div>
+            <div class="text-[10px] text-slate-400 text-center mt-3.5 space-y-1">
+                <div class="text-slate-500 font-bold uppercase tracking-wider text-[9px]">BEP 損益平衡單價計算式</div>
+                <div class="font-mono text-slate-500 text-[10px]">(總成本 - 車位銷售額) / (可銷售坪數 × 銷售率)</div>
+                <div id="m-bepFormulaValue" class="font-mono text-slate-300 text-xs font-black pt-0.5">--</div>
+            </div>
+        </div>
+
+        <!-- Sales Ratio Chart -->
+        <div class="glass p-5 shadow-xl mt-4">
+            <h3 class="text-sm font-bold mb-4">📊 銷售總額比率</h3>
+            <div style="height:240px"><canvas id="salesRatioChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ④ 綜合試算 -->
+    <div id="tab-result" class="tab-panel hidden space-y-4">
+
+        <!-- Hero profit -->
+        <div id="profitHero" class="p-6 text-center rounded-2xl border border-slate-700 bg-slate-800/50">
+            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-2">預估開發淨利潤</p>
+            <p id="r-profitHeroVal" class="text-5xl font-black tracking-tight text-slate-400">-- 萬</p>
+            <p id="r-profitHeroNote" class="text-xs text-slate-500 mt-2">完成試算後顯示</p>
+        </div>
+
+        <!-- 3-column summary -->
+        <!-- 水平條狀摺疊選單容器 -->
+        <div class="space-y-3 mb-4">
+            <!-- 成本面板 -->
+            <div class="glass border-sky-800/30 overflow-hidden rounded-xl">
+                <button onclick="toggleSummaryPanel('cost')" type="button" class="tap w-full px-4 py-3.5 bg-slate-900/50 flex justify-between items-center hover:bg-slate-900/80 transition-all">
+                    <span class="text-xs text-sky-400 font-black flex items-center gap-2">💰 成本明細</span>
+                    <div class="flex items-center gap-2">
+                        <span id="p-totalCostHeader" class="text-xs font-mono text-sky-300 font-black">合計 -- 萬</span>
+                        <svg id="p-costChevron" class="w-4 h-4 text-slate-500 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                </button>
+                <div id="p-costBody" class="px-4 py-3.5 border-t border-slate-800/50 space-y-3">
+                    <!-- 系統預設成本項目 -->
+                    <div id="p-defaultCosts" class="space-y-2 text-xs"></div>
+                    <!-- 自訂成本項目列表 -->
+                    <div id="p-customCostsList" class="space-y-2 text-xs border-t border-slate-800/60 pt-2 hidden"></div>
+                    
+                    <!-- 常用成本快速新增 -->
+                    <div class="text-[10px] text-slate-500 font-bold pt-1.5 border-t border-slate-800/60">常用快速新增：</div>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="quickFillCost('土地佣金')" type="button" class="tap px-2 py-0.5 bg-slate-800 text-[10px] text-slate-300 rounded hover:bg-slate-700">土地佣金</button>
+                        <button onclick="quickFillCost('增值稅預估')" type="button" class="tap px-2 py-0.5 bg-slate-800 text-[10px] text-slate-300 rounded hover:bg-slate-700">增值稅預估</button>
+                        <button onclick="quickFillCost('地主補貼款')" type="button" class="tap px-2 py-0.5 bg-slate-800 text-[10px] text-slate-300 rounded hover:bg-slate-700">地主補貼款</button>
+                    </div>
+                    
+                    <!-- 新增成本輸入列 -->
+                    <div class="flex gap-2">
+                        <input type="text" id="addCostName" placeholder="自訂成本項目 (如：規費)" class="inp py-1 px-2 text-xs flex-grow">
+                        <input type="number" id="addCostAmt" placeholder="金額(萬)" class="inp py-1 px-2 text-xs w-20 text-center">
+                        <button onclick="addCustomCost()" type="button" class="tap px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold whitespace-nowrap">新增</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 收益面板 -->
+            <div class="glass border-emerald-800/30 overflow-hidden rounded-xl">
+                <button onclick="toggleSummaryPanel('revenue')" type="button" class="tap w-full px-4 py-3.5 bg-slate-900/50 flex justify-between items-center hover:bg-slate-900/80 transition-all">
+                    <span class="text-xs text-emerald-400 font-black flex items-center gap-2">📈 收益明細</span>
+                    <div class="flex items-center gap-2">
+                        <span id="p-totalRevenueHeader" class="text-xs font-mono text-emerald-300 font-black">合計 -- 萬</span>
+                        <svg id="p-revenueChevron" class="w-4 h-4 text-slate-500 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                </button>
+                <div id="p-revenueBody" class="px-4 py-3.5 border-t border-slate-800/50 space-y-3">
+                    <!-- 系統預設收益項目 -->
+                    <div id="p-defaultRevenues" class="space-y-2 text-xs"></div>
+                    <!-- 自訂收益項目列表 -->
+                    <div id="p-customRevenuesList" class="space-y-2 text-xs border-t border-slate-800/60 pt-2 hidden"></div>
+                    
+
+                    <!-- 新增收益輸入列 -->
+                    <div class="flex gap-2">
+                        <input type="text" id="addRevenueName" placeholder="自訂收益項目" class="inp py-1 px-2 text-xs flex-grow">
+                        <input type="number" id="addRevenueAmt" placeholder="金額(萬)" class="inp py-1 px-2 text-xs w-20 text-center">
+                        <button onclick="addCustomRevenue()" type="button" class="tap px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold whitespace-nowrap">新增</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 指標面板 -->
+            <div class="glass border-rose-800/30 overflow-hidden rounded-xl">
+                <button onclick="toggleSummaryPanel('kpi')" type="button" class="tap w-full px-4 py-3.5 bg-slate-900/50 flex justify-between items-center hover:bg-slate-900/80 transition-all">
+                    <span class="text-xs text-rose-400 font-black flex items-center gap-2">📊 投報指標</span>
+                    <div class="flex items-center gap-2">
+                        <span id="p-netProfitHeader" class="text-xs font-mono text-rose-300 font-black">淨利 -- 萬</span>
+                        <svg id="p-kpiChevron" class="w-4 h-4 text-slate-500 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                </button>
+                <div id="p-kpiBody" class="px-4 py-3.5 border-t border-slate-800/50 space-y-3">
+                    <!-- 系統預設指標項目 -->
+                    <div id="p-defaultKpis" class="space-y-2 text-xs"></div>
+                    <!-- 自訂指標列表 -->
+                    <div id="p-customKpisList" class="space-y-2 text-xs border-t border-slate-800/60 pt-2 hidden"></div>
+                    <!-- 新增指標輸入列 -->
+                    <div class="flex gap-2">
+                        <input type="text" id="addKpiName" placeholder="自訂指標項目 (如：目標 ROI)" class="inp py-1 px-2 text-xs flex-grow">
+                        <input type="text" id="addKpiVal" placeholder="數值 (如：20%)" class="inp py-1 px-2 text-xs w-24 text-center">
+                        <button onclick="addCustomKpi()" type="button" class="tap px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold whitespace-nowrap">新增</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode-specific land purchase and financing cards -->
+        <!-- 買斷/混合: land purchase -->
+        <div id="purchaseCard" class="hidden glass-amber p-5 shadow-xl">
+            <h2 class="sec-title"><span class="sec-bar bg-amber-500"></span><span id="purchaseCardTitle">土地購入與容移設定</span></h2>
+            <!-- Pure purchase -->
+            <div id="purePurchaseFields">
+                <label class="lbl lbl-amber">買入單價 (萬元/坪)</label>
+                <input type="number" id="landPurchasePrice" value="100" class="inp border-yellow-700/40" oninput="calculateAll()">
+            </div>
+            <!-- Mixed fields -->
+            <div id="mixedPurchaseFields" class="hidden space-y-3">
+                <div>
+                    <label class="lbl lbl-amber">買入單價 (萬/坪)</label>
+                    <input type="number" id="mixedPurchasePrice" value="100" class="inp border-yellow-700/40" oninput="calculateAll()">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="lbl lbl-blue">建方買入面積 (坪)</label>
+                        <input type="number" id="mixedPurchaseArea" value="50" class="inp border-blue-700/30" oninput="handleMixedAreaChange()">
+                    </div>
+                    <div>
+                        <label class="lbl lbl-green">買入比例 (%)</label>
+                        <input type="number" id="mixedPurchaseRatio" value="50" class="inp border-emerald-700/30" oninput="handleMixedRatioChange()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Land cost summary -->
+            <div id="landCostSummaryRow" class="mt-3 p-3 bg-amber-900/20 rounded-xl border border-amber-700/30 flex justify-between items-center">
+                <span class="text-xs text-amber-400 font-bold">土地投入成本</span>
+                <span id="totalLandCostText" class="text-base font-black text-white">0 萬</span>
+            </div>
+
+            <!-- 容移/代金成本 section -->
+            <div id="transferCostSection" class="mt-4 pt-4 border-t border-yellow-700/30 space-y-3">
+                <p class="grp-title grp-title-purple mb-2">容移/代金成本</p>
+                <div class="space-y-3">
+
+                    <!-- Announcement values, TOD parameter, and weights (3-column layout) -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="lbl lbl-purple text-[10px] whitespace-nowrap">參考公告現值 (萬/㎡)</label>
+                            <input type="number" id="refAnnouncementValue" value="10" class="inp text-center" oninput="calculateAll()">
+                        </div>
+                        <div>
+                            <label class="lbl lbl-purple text-[10px] whitespace-nowrap">TOD 估價參數</label>
+                            <input type="number" id="todValuationParam" value="1.3" step="0.01" class="inp text-center" oninput="calculateAll()">
+                        </div>
+                        <div>
+                            <label class="lbl lbl-purple text-[10px] whitespace-nowrap">代金預設權重 (%)</label>
+                            <input type="number" id="cashWeight" value="160" class="inp text-center" oninput="calculateAll()">
+                        </div>
+                    </div>
+
+                    <!-- Summaries -->
+                    <div class="grid grid-cols-3 gap-2 mt-3">
+                        <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-center text-center">
+                            <span class="text-[9px] text-slate-500 font-bold whitespace-nowrap">預估代金總額</span>
+                            <span id="estimatedCashInLieuTotal" class="text-sm font-black text-purple-300 mt-1">0 萬</span>
+                        </div>
+                        <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-center text-center">
+                            <span class="text-[9px] text-slate-500 font-bold whitespace-nowrap">預估 TOD 總額</span>
+                            <span id="estimatedTodTotal" class="text-sm font-black text-purple-300 mt-1">0 萬</span>
+                        </div>
+                        <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-700/50 flex flex-col justify-center text-center">
+                            <span class="text-[9px] text-slate-500 font-bold whitespace-nowrap">容移/TOD銷坪成本</span>
+                            <span id="transferCostPerSaleArea" class="text-sm font-black text-purple-300 mt-1">0 萬/坪</span>
+                        </div>
+                    </div>
+
+                    <!-- Footnote & EasyMap Toggle Buttons -->
+                    <div class="mt-2 flex justify-between items-center">
+                        <button onclick="toggleTransferFootnote(this)" type="button" class="text-[10px] text-purple-400 font-bold hover:text-purple-300 transition-all flex items-center gap-1">
+                            ℹ️ <span>顯示公式說明</span>
+                        </button>
+                        <button onclick="openEasyMap()" type="button" class="text-[10px] text-amber-400 font-bold hover:text-amber-300 transition-all flex items-center gap-1">
+                            🗺️ <span>查詢公告現值/地價 (官網)</span>
+                        </button>
+                    </div>
+
+                    <!-- Footnote -->
+                    <div id="transferFootnote" class="hidden mt-2 p-3 bg-slate-900/30 rounded-xl border border-purple-950/20 text-[9px] text-slate-500 leading-relaxed">
+                        註1：代金公式：參考公告現值 * 3.3058 * 基地面積 * (該項移轉% / 100) * (預設權重% / 100)<br>
+                        註2：TOD公式：基地面積 * 3.3058 * (TOD增額%) * 參考公告現值 * (預設權重%) * 分配比例 * 估價參數
+                    </div>
+
+                    <!-- Transfer split (合建/混合 only) -->
+                    <div id="transferSplitContainer" class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-800/80">
+                        <div>
+                            <label class="lbl lbl-blue">容移 地主分回 (%)</label>
+                            <input type="number" id="transferLandlordRatio" value="10" class="inp" oninput="calculateAll()">
+                        </div>
+                        <div>
+                            <label class="lbl">容移 建方分回 (%)</label>
+                            <input type="number" id="transferBuilderRatio" value="50" class="inp" readonly>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financing (買斷/混合) -->
+        <div id="financingCard" class="hidden glass p-5 shadow-xl border-amber-500/20">
+            <h2 class="sec-title"><span class="sec-bar bg-amber-500"></span><span id="financingCardTitle" class="text-amber-400">土地/建築融資設定</span></h2>
+            <div class="space-y-4">
+                <div id="landLoanSection">
+                    <p class="grp-title grp-title-amber">土地融資（土融）</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label class="lbl">成數(%)</label><input type="number" id="landLoanRatio" value="50" class="inp text-sm" oninput="calculateAll()"></div>
+                        <div><label class="lbl">年限(年)</label><input type="number" id="landLoanYears" value="5.0" step="0.1" class="inp text-sm" oninput="calculateAll()" onblur="if(this.value) this.value = parseFloat(this.value).toFixed(1)"></div>
+                        <div><label class="lbl">利率(%)</label><input type="number" id="landLoanInterest" value="3.0" step="0.1" class="inp text-sm" oninput="calculateAll()"></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="grp-title grp-title-amber">建築融資（建融）</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label class="lbl">成數(%)</label><input type="number" id="buildLoanRatio" value="50" class="inp text-sm" oninput="calculateAll()"></div>
+                        <div><label class="lbl">年限(年)</label><input type="number" id="buildLoanYears" value="3.0" step="0.1" readonly class="inp text-sm bg-slate-800/50 text-slate-400 cursor-not-allowed font-black text-amber-300"></div>
+                        <div><label class="lbl">利率(%)</label><input type="number" id="buildLoanInterest" value="3.0" step="0.1" class="inp text-sm" oninput="calculateAll()"></div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700/40">
+                    <span class="text-xs text-slate-400 font-bold">融資利息支出</span>
+                    <span id="totalInterestText" class="text-sm font-black text-amber-300">0 萬</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Moved block from Land Tab -->
+        <div class="glass p-5 shadow-xl border-t border-slate-700/55">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="sec-title mb-0" style="margin-bottom: 0;"><span class="sec-bar bg-blue-500"></span>銷售與造價設定</h2>
+                <!-- 銷坪與公設連動平衡開關 -->
+                <label class="inline-flex items-center gap-1.5 cursor-pointer px-2 py-0.5 rounded-full linkage-toggle-container select-none">
+                    <input type="checkbox" id="saleLinkageToggle" class="sr-only peer" onchange="toggleSaleLinkage()">
+                    <span class="text-[9px] text-slate-500 peer-checked:text-emerald-300 font-bold transition-all">連動平衡</span>
+                    <div class="relative w-6 h-3 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-slate-400 after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-white"></div>
+                </label>
+            </div>
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="lbl flex justify-between items-end h-5">
+                            <span class="flex items-center">
+                                <input type="radio" name="saleAreaMode" id="modeFactor" value="factor" checked class="mr-1.5 accent-sky-400 cursor-pointer" onchange="calculateAll()">
+                                <span>銷坪係數</span>
+                            </span>
+                            <span id="totalSaleAreaDisplay" class="text-slate-500 font-mono font-medium">-- 坪</span>
+                        </label>
+                        <input type="number" id="saleFactor" value="1.58" step="0.01" class="inp" oninput="selectSaleMode('factor'); calculateAll()">
+                    </div>
+                    <div>
+                        <label class="lbl flex justify-between items-end h-5" title="計算式：總銷售面積 / 基地面積，代表一坪土地可獲得之銷售面積">
+                            <span>土容比</span>
+                        </label>
+                        <input type="text" id="landSalesRatio" value="0.00" readonly class="inp bg-slate-800/50 text-emerald-300 font-black cursor-not-allowed">
+                        <input type="hidden" id="avgPrice" value="60">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="lbl flex justify-between items-end h-5">
+                            <span class="flex items-center">
+                                <input type="radio" name="saleAreaMode" id="modePublicRatio" value="publicRatio" class="mr-1.5 accent-sky-400 cursor-pointer" onchange="calculateAll()">
+                                <span id="publicRatioSpan" title="計算式：(總容積樓地板面積 * 1.1) / (1 - 公設比%)">公設比 (%)</span>
+                            </span>
+                            <span id="derivedSaleAreaDisplay" class="text-slate-500 font-mono font-medium">-- 坪</span>
+                        </label>
+                        <input type="number" id="publicRatio" value="35" class="inp" oninput="selectSaleMode('publicRatio'); calculateAll()">
+                        <input type="hidden" id="adminRate" value="2.5">
+                        <input type="hidden" id="advisorRate" value="3">
+                        <input type="hidden" id="trustRate" value="0.3">
+                        <input type="hidden" id="salesRate" value="5">
+                        <input type="hidden" id="taxRate" value="20">
+                    </div>
+                    <div>
+                        <label class="lbl flex justify-between items-end h-5">
+                            <span>營造單價 (萬/坪)</span>
+                            <span id="costSrcBadge" class="pill bg-slate-700 text-slate-400 normal-case font-medium">手動</span>
+                        </label>
+                        <input type="number" id="constructionCost" value="20" class="inp" oninput="onManualCostChange()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode-specific detail (collapsible) -->
+        <div id="r-modeDetail" class="glass shadow-xl overflow-hidden">
+            <button type="button" onclick="toggleModeDetail()" class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/5 transition-colors cursor-pointer">
+                <h2 class="sec-title mb-0" style="margin-bottom:0"><span class="sec-bar bg-blue-500"></span><span id="r-modeDetailTitle">試算明細</span></h2>
+                <span id="r-modeDetailArrow" class="text-slate-400 text-sm transition-transform duration-300" style="transform:rotate(0deg)">▼</span>
+            </button>
+            <div id="r-modeDetailContent" class="space-y-2 text-xs px-5 pb-4" style="transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.3s; overflow:hidden;"></div>
+        </div>
+
+        <!-- 合建/混合: split ratio -->
+        <div id="splitCard" class="glass p-5 shadow-xl">
+            <h2 class="sec-title flex justify-between items-center"><span class="flex items-center"><span class="sec-bar bg-blue-500"></span><span id="splitCardTitle">合建分售：分配比例</span></span><button onclick="matchAllocationRatioForTargetEquityRoi(15)" type="button" class="text-[10px] py-1 px-2.5 rounded-md bg-blue-600/25 text-blue-300 hover:bg-blue-600/40 transition-all border border-blue-500/30 active:scale-95 font-bold flex items-center gap-1 shadow-lg shadow-blue-500/10">🎯 自有資金成本 15%</button></h2>
+            <div class="flex justify-between mb-3 px-1">
+                <div>
+                    <p class="text-[9px] text-slate-400 uppercase font-bold">地主分配</p>
+                    <p class="text-2xl font-black text-blue-400"><span id="landlordRatioText">60</span><span class="text-sm">%</span></p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[9px] text-slate-400 uppercase font-bold">建方分配</p>
+                    <p class="text-2xl font-black text-emerald-400"><span id="builderRatioText">40</span><span class="text-sm">%</span></p>
+                </div>
+            </div>
+            <input type="range" id="splitRatio" min="30" max="80" value="60" step="1" class="w-full h-2 rounded-full bg-slate-700 appearance-none cursor-pointer" oninput="updateRatio(this.value)">
+            <p id="mixedSplitHint" class="hidden text-[10px] text-slate-500 mt-2 text-center">※ 混合模式下，僅對「合建部分」進行比例分配</p>
+        </div>
+
+        <!-- Profit structure chart -->
+        <div class="glass p-5 shadow-xl">
+            <h3 class="text-sm font-bold mb-4">🥧 成本 vs 利潤結構</h3>
+            <div style="height:240px" class="max-w-xs mx-auto"><canvas id="profitChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ⑤ AI 分析 -->
+    <div id="tab-ai" class="tab-panel hidden space-y-4">
+
+        <!-- API Key 設定 -->
+        <div class="glass p-4 shadow-xl border-t border-violet-500/20">
+            <div class="flex justify-between items-center mb-2.5">
+                <h3 class="text-sm font-black text-violet-300">⚙ Gemini API Key 設定</h3>
+                <span id="api-key-status" class="pill bg-slate-700/50 text-slate-400 border border-slate-600/40">未設定</span>
+            </div>
+            <div class="flex gap-2 mb-3">
+                <div class="relative flex-1 flex">
+                    <input type="password" id="api-key-input"
+                           placeholder="貼上您的 Gemini API Key…"
+                           class="inp flex-1 text-sm pr-10"
+                           autocomplete="new-password"
+                           oninput="updateApiKeyStatus()">
+                    <button type="button" onclick="toggleApiKeyVisibility()" id="api-key-toggle-btn" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 focus:outline-none select-none">
+                        <!-- SVG Eye Icon (Open) -->
+                        <svg id="eye-icon-open" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <!-- SVG Eye-Off Icon (Closed) -->
+                        <svg id="eye-icon-closed" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                        </svg>
+                    </button>
+                </div>
+                <button onclick="saveApiKey()" class="tap px-4 py-2 bg-violet-600 text-white text-xs font-black rounded-xl flex-shrink-0">儲存</button>
+                <button onclick="testApiKeyConnection()" class="tap px-4 py-2 bg-emerald-600 text-white text-xs font-black rounded-xl flex-shrink-0 ml-1">測試連線</button>
+            </div>
+            <!-- Model Selection -->
+            <div class="mb-3">
+                <label class="lbl mb-1.5 text-violet-300 text-[10px]">選擇 AI 模型</label>
+                <select id="api-model-select" class="inp text-xs py-2 bg-slate-900 border-slate-700 text-slate-200" onchange="changeApiModel()">
+                    <option value="gemini-2.5-flash" selected>Gemini 1.5 Flash (預設推薦，智慧與速度平衡)</option>
+                    <option value="gemini-2.5-pro">Gemini 1.5 Pro (深度分析，高複雜任務首選)</option>
+                </select>
+            </div>
+            <div class="p-2.5 bg-slate-800/50 rounded-xl border border-slate-700/30">
+                <p class="text-[10px] text-slate-400 leading-relaxed">
+                    💡 API Key 儲存在裝置本地（localStorage），不會上傳至任何伺服器。<br>
+                    <a href="https://aistudio.google.com/apikey" target="_blank" class="text-violet-400 font-bold">→ 前往 Google AI Studio 免費申請 API Key ↗</a>
+                </p>
+            </div>
+        </div>
+
+        <div class="glass p-5 shadow-xl space-y-4">
+            <h2 class="sec-title mb-1"><span class="sec-bar bg-purple-500"></span><span class="text-purple-300">AI 顧問服務</span></h2>
+
+            <!-- 本案備註事項 -->
+            <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800 space-y-2">
+                <p class="text-xs text-purple-300 font-bold flex items-center gap-1">📝 本案備註事項</p>
+                <textarea id="projectNotesArea" oninput="saveProjectsToLocalStorage()" class="w-full h-20 p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-purple-500/50 resize-none transition-all" placeholder="請在此輸入本案的備註或備忘錄，系統將隨本方案自動儲存..."></textarea>
+            </div>
+
+            <!-- AI 助理對話框 -->
+            <div class="p-4 bg-purple-900/10 rounded-xl border border-purple-700/20 space-y-3 flex flex-col">
+                <p class="text-xs text-purple-300 font-bold flex items-center gap-1">🤖 AI 智慧助理</p>
+                
+                <!-- 對話記錄區 -->
+                <div id="chatHistoryArea" class="h-40 overflow-y-auto p-3 bg-slate-950/80 rounded-xl border border-slate-900 space-y-3 scrollbar-thin scrollbar-thumb-purple-900">
+                    <div class="text-[10px] text-purple-400/70 text-center py-4">
+                        💡 您可以詢問本案相關的開發策略、ROI 優化或財務問題。<br>
+                        AI 助理會自動帶入目前試算數據進行分析！
+                    </div>
+                </div>
+                
+                <!-- 輸入發送區 -->
+                <div class="flex gap-2">
+                    <input type="text" id="chatInput" onkeydown="if(event.key==='Enter') sendChatMessage()" class="inp flex-1 text-xs py-2.5 bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-600" placeholder="詢問關於本案的開發建議...">
+                    <button onclick="sendChatMessage()" class="tap px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 border border-purple-500/20 text-white text-xs font-bold rounded-xl shadow-md">
+                        送出
+                    </button>
+                </div>
+            </div>
+
+            <!-- Generate report -->
+            <button onclick="generateAIReport()" class="tap w-full py-4 bg-gradient-to-br from-blue-600 to-purple-700 text-white font-black rounded-2xl shadow-xl shadow-blue-900/40 flex items-center justify-center gap-2 text-sm tracking-widest">
+                ✨ 生成全案 AI 分析報告
+            </button>
+        </div>
+
+        <!-- 一鍵生成簡報 PPTX 面板 -->
+        <div class="glass p-5 shadow-xl border-purple-500/20 mt-4 space-y-4">
+            <h3 class="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                📊 一鍵生成簡報
+            </h3>
+            <p class="text-[10px] text-slate-500 leading-relaxed">
+                將當前試算數據與 AI 評估結果，一鍵匯出為 15 頁專業土地開發報告 PPT。
+            </p>
+            
+            <!-- 風格選擇 -->
+            <div class="flex justify-between items-center bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span class="text-[11px] text-slate-400">簡報視覺風格</span>
+                <div class="flex gap-2">
+                    <button id="ppt-style-dark" onclick="switchPptStyle('dark')" class="px-3 py-1 bg-purple-600 border border-purple-500/50 text-white text-[10px] font-bold rounded-lg transition-all">深色科技</button>
+                    <button id="ppt-style-light" onclick="switchPptStyle('light')" class="px-3 py-1 bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold rounded-lg transition-all">淺色財經</button>
+                </div>
+            </div>
+
+            <!-- 下拉選圖 -->
+            <div class="flex flex-col bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 space-y-1.5">
+                <label class="text-[11px] text-slate-400 font-bold flex items-center gap-1">🖼️ 簡報示意配圖 (第 6 頁量體規劃)</label>
+                <select id="ppt-image-select" class="inp text-xs py-2 bg-slate-950 border-slate-800 text-slate-300">
+                    <option value="modern_3d">3D 現代精品雙用途地標模擬圖</option>
+                    <option value="city_aerial">台北都會精華區航拍空照圖</option>
+                    <option value="none" selected>不插入示意配圖（最穩定）</option>
+                </select>
+            </div>
+            
+            <!-- 生成按鈕 -->
+            <button id="export-pptx-btn" onclick="openStagingModal()" class="tap w-full py-4 bg-gradient-to-br from-blue-600 to-purple-700 text-white font-black rounded-2xl shadow-xl shadow-blue-900/40 flex items-center justify-center gap-2 text-sm tracking-widest transition-all">
+                📊 一鍵生成 15 頁全案簡報 PDF
+            </button>
+        </div>
+
+        <!-- AI output -->
+        <details class="group glass shadow-xl border-purple-500/30 overflow-hidden hidden" id="aiSection" open>
+            <summary class="p-5 cursor-pointer select-none flex justify-between items-center bg-slate-900/10">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-bold text-purple-300 flex items-center gap-2"><span>✨</span>AI 顧問報告</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="event.stopPropagation(); event.preventDefault(); copyAIContent()" class="tap text-[10px] bg-purple-600/30 border border-purple-500/40 px-3 py-1.5 rounded-full text-purple-200 font-bold relative z-10">複製</button>
+                    <button onclick="event.stopPropagation(); event.preventDefault(); importAIToSlides()" id="btn-import-slides" class="tap text-[10px] bg-sky-600/30 border border-sky-500/40 px-3 py-1.5 rounded-full text-sky-200 font-bold relative z-10">匯入簡報</button>
+                    <svg class="h-5 w-5 transform group-open:rotate-180 transition-transform text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </summary>
+            
+            <div class="px-5 pb-5">
+                <div id="aiLoading" class="hidden flex-col items-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mb-3"></div>
+                    <p class="text-xs text-slate-400 animate-pulse tracking-widest">正在分析中...</p>
+                </div>
+                <div id="aiContent" class="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-light italic"></div>
+            </div>
+        </details>
+    </div>
+
+</div><!-- end app-content -->
+
+<!-- ═══════════════ FIXED BOTTOM NAV ═══════════════ -->
+<div id="app-nav" class="bg-slate-900/95 backdrop-blur-xl border-t border-slate-800">
+    <div class="flex">
+        <button onclick="switchTab('land')"         id="nav-land"         class="nav-btn active">
+            <span class="nav-ico"><img src="風格/land.png" class="nav-ico-img" alt="土地"></span>
+            <span class="nav-lbl">土地</span>
+        </button>
+        <button onclick="switchTab('construction')" id="nav-construction" class="nav-btn">
+            <span class="nav-ico"><img src="風格/construction.png" class="nav-ico-img" alt="營建"></span>
+            <span class="nav-lbl">營建</span>
+        </button>
+        <button onclick="switchTab('market')"       id="nav-market"       class="nav-btn">
+            <span class="nav-ico"><img src="風格/market.png" class="nav-ico-img" alt="市場"></span>
+            <span class="nav-lbl">市場</span>
+        </button>
+        <button onclick="switchTab('result')"       id="nav-result"       class="nav-btn">
+            <span class="nav-ico"><img src="風格/result.png" class="nav-ico-img" alt="試算"></span>
+            <span class="nav-lbl">試算</span>
+        </button>
+        <button onclick="switchTab('ai')"           id="nav-ai"           class="nav-btn">
+            <span class="nav-ico"><img src="風格/ai.png" class="nav-ico-img" alt="AI"></span>
+            <span class="nav-lbl">AI</span>
+        </button>
+    </div>
+</div>
+
+<!-- ═══════════════ PROJECT MANAGER MODAL ═══════════════ -->
+<div id="project-modal">
+    <div id="project-modal-bg" onclick="closeProjectModal()"></div>
+    <div id="project-modal-sheet">
+        <!-- Handle bar -->
+        <div class="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-3 flex-shrink-0"></div>
+        
+        <div class="flex justify-between items-start mb-3 flex-shrink-0">
+            <div>
+                <h3 class="text-base font-black text-white">💾 土地開發專案管理</h3>
+                <p class="text-[10px] text-slate-500 mt-0.5">進行專案與方案之儲存、切換、新增、刪除及本機備份</p>
+            </div>
+            <button onclick="closeProjectModal()" class="tap text-slate-500 hover:text-white text-2xl p-1.5 leading-none -mt-1.5">&times;</button>
+        </div>
+
+        <!-- Scrollable content -->
+        <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+            
+            <!-- Part 1: Main Project -->
+            <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-3 space-y-2.5">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-200 font-bold text-xs">1. 選擇/建立主專案</span>
+                    <button onclick="addNewProject()" type="button" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold transition-all">＋ 新增主專案</button>
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-500 block mb-1">主專案列表</label>
+                    <select id="projectSelector" class="inp w-full" onchange="onProjectSelectChange(this.value)"></select>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-slate-500 block mb-1">編輯案名</label>
+                        <input type="text" id="projectNameInput" class="inp" oninput="onProjectInfoInput()" placeholder="輸入專案名稱">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-500 block mb-1">編輯日期</label>
+                        <input type="date" id="projectDateInput" class="inp text-center" onchange="onProjectInfoInput()">
+                    </div>
+                </div>
+                <div class="flex justify-end pt-1">
+                    <button onclick="deleteCurrentProject()" type="button" class="px-2 py-1 bg-rose-950/40 border border-rose-800/40 text-rose-300 hover:bg-rose-900/40 rounded text-[10px] font-bold transition-all">🗑️ 刪除此專案</button>
+                </div>
+            </div>
+
+            <!-- Part 2: Scenarios -->
+            <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-3 space-y-2.5">
+                <span class="text-slate-200 font-bold text-xs block">2. 評估方案管理 (方案比較)</span>
+                <div>
+                    <label class="text-[10px] text-slate-500 block mb-1">方案版本切換</label>
+                    <select id="scenarioSelector" class="inp w-full font-bold text-emerald-300 bg-slate-800/80" onchange="onScenarioSelectChange(this.value)"></select>
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-500 block mb-1">修改目前方案名稱</label>
+                    <input type="text" id="scenarioNameInput" class="inp" oninput="onScenarioNameInput()" placeholder="如：A案、B案">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button onclick="saveCurrentDataToScenario()" type="button" class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] shadow-lg shadow-emerald-600/10 transition-all flex items-center justify-center gap-1.5 active:scale-95">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                        儲存當前數值
+                    </button>
+                    <button onclick="duplicateCurrentScenario()" type="button" class="py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-[11px] shadow-lg shadow-blue-600/10 transition-all flex items-center justify-center gap-1.5 active:scale-95">
+                        複製當前方案
+                    </button>
+                </div>
+                <div class="flex justify-between items-center pt-1.5 border-t border-slate-800/60">
+                    <button onclick="addNewScenario()" type="button" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 border border-slate-700/60 text-slate-300 rounded text-[10px] font-bold transition-all">＋ 新增方案</button>
+                    <button onclick="deleteCurrentScenario()" type="button" class="px-2.5 py-1 bg-rose-950/20 border border-rose-900/30 text-rose-400 hover:bg-rose-900/20 rounded text-[10px] font-bold transition-all">🗑️ 刪除此方案</button>
+                </div>
+            </div>
+
+            <!-- Part 3: Backup & Restore -->
+            <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-3 space-y-2">
+                <span class="text-slate-200 font-bold text-xs block">3. 手機/本機備份與復原</span>
+                <p class="text-[9px] text-slate-500 leading-relaxed">提示：為防止清除瀏覽器快取時專案遺失，建議定期將專案庫備份成 JSON 檔案，存取於您手機或本機的任意資料夾中。</p>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button onclick="exportProjectsToJSON()" type="button" class="py-1.5 px-3 bg-slate-800 hover:bg-slate-750 border border-slate-700/60 text-emerald-400 hover:text-emerald-300 rounded-lg font-bold text-[10px] transition-all flex items-center justify-center gap-1">
+                        📥 匯出備份檔案
+                    </button>
+                    <button onclick="triggerProjectImport()" type="button" class="py-1.5 px-3 bg-slate-800 hover:bg-slate-750 border border-slate-700/60 text-violet-400 hover:text-violet-300 rounded-lg font-bold text-[10px] transition-all flex items-center justify-center gap-1">
+                        📤 匯入備份檔案
+                    </button>
+                </div>
+                <input type="file" id="project-import-file" accept=".json" class="hidden" onchange="importProjectsJSON(this)">
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ AI 法規分析結果 MODAL ═══════════════ -->
+<div id="ai-reg-modal">
+    <div id="ai-reg-modal-bg" onclick="closeAiRegModal()"></div>
+    <div id="ai-reg-modal-sheet">
+        <!-- Handle bar -->
+        <div class="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-3 flex-shrink-0"></div>
+        <div class="flex justify-between items-start mb-3 flex-shrink-0">
+            <div>
+                <h3 class="text-base font-black text-violet-400 flex items-center gap-1">🤖 AI 法規智慧適法性分析報告</h3>
+                <p class="text-[9px] text-slate-500 mt-0.5">依據基準分區與地段特例，經 Gemini 大模型智慧生成</p>
+            </div>
+            <button onclick="closeAiRegModal()" class="tap text-slate-500 hover:text-white text-2xl p-1.5 leading-none -mt-1.5">&times;</button>
+        </div>
+        
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto min-h-0 text-slate-300 text-xs leading-relaxed space-y-3 p-3 bg-slate-900/50 border border-slate-800 rounded-2xl select-text" id="ai-reg-modal-content">
+            <!-- Loading -->
+            <div id="ai-reg-loading" class="flex flex-col items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-violet-500 mb-3"></div>
+                <p class="text-[10px] text-slate-400 animate-pulse tracking-widest">AI 法規適法性智慧分析中，請稍候…</p>
+            </div>
+            <!-- Result Text -->
+            <div id="ai-reg-result-text" class="hidden whitespace-pre-line p-1"></div>
+        </div>
+        <!-- Footer Action Buttons -->
+        <div class="flex gap-2 mt-3 flex-shrink-0">
+            <button onclick="copyLegalContent()" class="tap flex-1 py-2.5 bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-all hover:bg-slate-700 flex items-center justify-center gap-1.5">
+                📋 複製內容
+            </button>
+            <button id="btn-import-legal-slides" onclick="importLegalToSlides()" class="tap flex-1 py-2.5 bg-sky-600/30 border border-sky-500/40 text-sky-200 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5">
+                📊 匯入簡報
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ GOOGLE MAPS MODAL ═══════════════ -->
+<!-- ═══════════════ IN-APP INTERACTIVE MAP MODAL (Option 1) ═══════════════ -->
+<div id="maps-modal">
+    <div id="maps-modal-bg" onclick="closeMapsModal()"></div>
+    <div id="maps-modal-sheet">
+        <!-- Handle bar -->
+        <div class="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-3 flex-shrink-0"></div>
+        <div class="flex justify-between items-start mb-3 flex-shrink-0">
+            <div>
+                <h3 class="text-base font-black text-white">📍 地圖位置查詢</h3>
+                <p class="text-[10px] text-slate-500 mt-0.5">輸入地址搜尋，或在地圖上點擊/拖拽標記點選地址</p>
+            </div>
+            <div class="flex items-center gap-2 -mt-1.5">
+                <button id="maps-size-btn" onclick="toggleMapsModalSize()" class="tap text-slate-500 hover:text-white text-base p-1.5 leading-none transition-colors" title="切換地圖大小">🗖</button>
+                <button onclick="closeMapsModal()" class="tap text-slate-500 hover:text-white text-2xl p-1.5 leading-none -mt-0.5">&times;</button>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="flex gap-2 mb-3 flex-shrink-0">
+            <input type="text" id="map-search-input" placeholder="輸入要搜尋的地址或地標..." class="inp flex-1 text-sm bg-slate-800 border-slate-700 text-white rounded-xl px-3 py-2 outline-none focus:border-blue-500 transition-colors">
+            <button onclick="geocodeAddress()" class="tap px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl flex-shrink-0 transition-colors flex items-center justify-center">
+                搜尋
+            </button>
+        </div>
+
+        <!-- Map container (grows to fill height) -->
+        <div class="flex-1 min-h-[360px] relative mb-3 rounded-xl overflow-hidden border border-slate-700/50 bg-slate-900">
+            <div id="in-app-map" style="width:100%; height:100%;"></div>
+
+            <!-- Floating Map Controls (top-right, top-3 since zoom moved to topleft) -->
+            <div class="absolute top-3 right-3 z-[1000] flex flex-col gap-2">
+                <!-- 測量按鈕 -->
+                <button id="btn-map-measure" onclick="toggleMapMeasureMode()" class="tap w-[40px] h-[40px] bg-slate-900/95 border border-slate-700/50 rounded-xl shadow-lg flex flex-col items-center justify-center gap-0.5 text-slate-300 hover:text-white transition-all active:scale-95" title="啟用/停用道路寬度測量工具">
+                    <span class="text-xs">📏</span>
+                    <span class="text-[9px] font-black text-slate-400 leading-none">測量</span>
+                </button>
+                <!-- TOD 按鈕 -->
+                <button id="btn-map-tod" onclick="toggleTodCircles()" class="tap w-[40px] h-[40px] bg-slate-900/95 border border-slate-700/50 rounded-xl shadow-lg flex flex-col items-center justify-center gap-0.5 text-slate-300 hover:text-white transition-all active:scale-95" title="切換捷運站 TOD 150/300/500/800公尺同心圓半徑">
+                    <span class="text-xs">🚇</span>
+                    <span class="text-[9px] font-black text-slate-400 leading-none">TOD</span>
+                </button>
+                <!-- 🥞 圖層疊加按鈕 -->
+                <button id="btn-map-overlay" onclick="toggleMapLayersPanel(event)" class="tap w-[40px] h-[40px] bg-slate-900/95 border border-slate-700/50 rounded-xl shadow-lg flex flex-col items-center justify-center gap-0.5 text-slate-300 hover:text-white transition-all active:scale-95" title="切換計畫地籍線與土地使用分區圖層">
+                    <span class="text-xs">🥞</span>
+                    <span class="text-[9px] font-black text-slate-400 leading-none">圖層</span>
+                </button>
+                <!-- 🌐 都計跳轉按鈕 -->
+                <button id="btn-map-gov-link" onclick="openOfficialPlanningPortal(event)" class="tap w-[40px] h-[40px] bg-slate-900/95 border border-slate-700/50 rounded-xl shadow-lg flex flex-col items-center justify-center gap-0.5 text-slate-300 hover:text-white transition-all active:scale-95" title="跳轉至官方都市計畫圖說查詢系統">
+                    <span class="text-xs">🌐</span>
+                    <span class="text-[9px] font-black text-slate-400 leading-none">都計</span>
+                </button>
+                <!-- 街景按鈕 -->
+                <button onclick="openStreetView(event)" class="tap w-[40px] h-[40px] bg-slate-900/95 border border-slate-700/50 rounded-xl shadow-lg flex flex-col items-center justify-center gap-0.5 text-slate-300 hover:text-white transition-all active:scale-95" title="開啟所指精準位置之 360 度街景環景">
+                    <span class="text-xs">🚏</span>
+                    <span class="text-[9px] font-black text-slate-400 leading-none">街景</span>
+                </button>
+                <!-- 📸 截圖按鈕 -->
+                <button id="btn-map-screenshot" onclick="captureMapScreenshot()" class="tap w-[40px] h-[40px] bg-slate-900/95 border border-slate-700/50 rounded-xl shadow-lg flex flex-col items-center justify-center gap-0.5 text-slate-300 hover:text-white transition-all active:scale-95" title="擷取地圖畫面以併入 AI 簡報">
+                    <span class="text-xs">📸</span>
+                    <span class="text-[9px] font-black text-slate-400 leading-none">截圖</span>
+                </button>
+            </div>
+
+            <!-- Floating Map Layer Selector Panel (positioned left of overlays stack) -->
+            <div id="map-layers-panel" class="absolute top-[96px] right-[58px] z-[1000] bg-slate-950/95 border border-slate-700/50 p-3 rounded-xl shadow-2xl flex flex-col gap-2.5 opacity-0 pointer-events-none transition-all duration-200 w-[140px]">
+                <div class="text-[10px] font-bold text-slate-400 border-b border-slate-800 pb-1.5 flex items-center gap-1">
+                    <span>🥞</span> 官方圖資疊圖
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" id="chk-layer-cadastral" onchange="toggleCadastralLayer()" class="rounded bg-slate-850 border-slate-700 text-purple-600 focus:ring-0 focus:ring-offset-0">
+                    <span class="text-[10px] text-slate-300">📐 國家地籍線</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" id="chk-layer-zoning" onchange="toggleZoningLayer()" class="rounded bg-slate-850 border-slate-700 text-purple-600 focus:ring-0 focus:ring-offset-0">
+                    <span class="text-[10px] text-slate-300">🏢 使用分區圖</span>
+                </label>
+            </div>
+
+            <!-- Floating measurement status panel -->
+            <div id="map-measure-status" class="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] bg-slate-950/90 border border-slate-700/50 px-3 py-2 rounded-xl flex items-center gap-3 shadow-2xl opacity-0 pointer-events-none transition-opacity duration-200">
+                <div class="flex flex-col">
+                    <span class="text-[11px] font-black text-amber-400">📏 道路寬度測量中</span>
+                    <span id="measure-instructions" class="text-[9px] text-slate-400 leading-none mt-0.5">請在地圖上點擊第 1 點 (起點)</span>
+                </div>
+                <button onclick="clearAllMeasurements(event)" class="tap bg-red-950 hover:bg-red-900 border border-red-800 text-red-200 text-[9px] font-bold px-2 py-1 rounded-lg transition-colors flex-shrink-0">
+                    清除
+                </button>
+            </div>
+
+            <!-- Floating TOD Legend (Horizontal at the bottom-left of the map) -->
+            <div id="map-tod-legend" class="absolute bottom-2 left-2 z-[1000] bg-slate-950/90 border border-slate-700/50 px-2.5 py-1.5 rounded-lg shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2">
+                <span class="text-[9px] font-black text-slate-300 flex items-center gap-0.5">🚇 捷運:</span>
+                <span class="flex items-center gap-0.5 text-[9px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>150m</span>
+                <span class="flex items-center gap-0.5 text-[9px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block"></span>300m</span>
+                <span class="flex items-center gap-0.5 text-[9px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-cyan-500 inline-block"></span>500m</span>
+                <span class="flex items-center gap-0.5 text-[9px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block"></span>800m</span>
+            </div>
+            <!-- Floating loading overlay inside map -->
+            <div id="map-loading-overlay" class="absolute inset-0 bg-slate-950/80 z-[1000] flex flex-col items-center justify-center gap-2 opacity-0 pointer-events-none transition-opacity duration-200">
+                <svg class="animate-spin h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-xs text-slate-400">定位中...</span>
+            </div>
+
+            <!-- Custom Street View Action Sheet (hidden by default) -->
+            <div id="street-view-sheet" class="absolute inset-x-0 bottom-0 bg-slate-950/95 border-t border-slate-700/50 z-[1001] p-4 rounded-t-2xl shadow-2xl transition-transform duration-300 translate-y-full flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-black text-slate-300 flex items-center gap-1.5">
+                        🚏 街景服務導航
+                    </span>
+                    <button onclick="closeStreetViewSheet()" class="text-slate-500 hover:text-white text-lg leading-none p-1">&times;</button>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                    即將前往 Google 街景。若您在 LINE 或其它 App 內開啟，為防開啟後「無法返回此試算網頁」，建議複製連結或以系統瀏覽器開啟。
+                </p>
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <button onclick="triggerStreetViewLink('_blank')" class="py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1">
+                        🚀 直接前往
+                    </button>
+                    <button onclick="copyStreetViewLink()" class="py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1">
+                        📋 複製連結
+                    </button>
+                </div>
+                <p class="text-[9px] text-slate-500 text-center">
+                    * 點擊直接前往會自動嘗試呼叫外部瀏覽器開啟。
+                </p>
+            </div>
+        </div>
+
+        <!-- Option Section: 都更/危老與道路寬度判定、TOD 級距 -->
+        <div class="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 space-y-2.5 flex-shrink-0">
+            <div class="grid grid-cols-2 gap-2.5">
+                <div>
+                    <div class="flex items-center h-6 mb-1">
+                        <label class="text-[10px] text-slate-400 block">開發類型判定</label>
+                    </div>
+                    <select id="modal-dev-type" onchange="onModalDevTypeChange()" class="inp text-[11px] bg-slate-900 border-slate-700/60 text-slate-200 w-full rounded-lg px-2 py-1.5 outline-none">
+                        <option value="none">一般開發 (非都更/危老)</option>
+                        <option value="ur">都市更新案 (都更)</option>
+                        <option value="ro">危老重建案 (危老)</option>
+                    </select>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center h-6 mb-1">
+                        <label class="text-[10px] text-slate-400 block">道路寬度判定</label>
+                        <button id="btn-map-detect-road" onclick="detectRoadWidthViaAI(event)" class="text-[9px] font-black text-sky-400 hover:text-sky-300 flex items-center gap-0.5 active:scale-95 transition-all ai-detect-glowing" title="使用 Gemini AI 聯網查詢此地址之都市計畫道路寬度">
+                            <span>🤖 AI 偵測</span>
+                        </button>
+                    </div>
+                    <select id="modal-road-width" class="inp text-[11px] bg-slate-900 border-slate-700/60 text-slate-200 w-full rounded-lg px-2 py-1.5 outline-none opacity-50" disabled>
+                        <option value="gt8">道路寬度達 8m 以上 (符合都更/危老)</option>
+                        <option value="6to8">道路寬度 6~8m (都更特定/危老)</option>
+                        <option value="lt6">道路寬度未達 6m (不符都更基本門檻)</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="text-[10px] text-slate-400 block mb-1">捷運 TOD 距離級距 (自行判別)</label>
+                <select id="modal-tod-range" class="inp text-[11px] bg-slate-900 border-slate-700/60 text-slate-200 w-full rounded-lg px-2 py-1.5 outline-none">
+                    <option value="none">800m 以上 (不符合/不適用 TOD 增額)</option>
+                    <option value="150">150m 內 (適用 TOD 增額)</option>
+                    <option value="300">150m ~ 300m (適用 TOD 增額)</option>
+                    <option value="500">300m ~ 500m (適用 TOD 增額)</option>
+                    <option value="800">500m ~ 800m (適用範圍邊界)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Address Result Box & Confirm -->
+        <div class="space-y-3 flex-shrink-0">
+            <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                <p class="text-[10px] text-slate-500 mb-1">已選定地址 (可手動修改)</p>
+                <input type="text" id="modal-address-input" placeholder="等待定位或點擊地圖標記..." class="inp text-sm bg-slate-900/60 border-slate-800 text-white w-full rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-500 transition-colors">
+            </div>
+
+            <button onclick="confirmMapsAddress()" class="tap w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-sm shadow-lg shadow-emerald-950/30 flex items-center justify-center gap-2 transition-all">
+                ✓&ensp;確認地址，返回試算頁面
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ CADASTRAL MAP MODAL ═══════════════ -->
+<div id="cadastral-modal">
+    <div id="cadastral-modal-bg" onclick="closeCadastralModal()"></div>
+    <div id="cadastral-modal-sheet">
+        <!-- Handle bar -->
+        <div class="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-3 flex-shrink-0"></div>
+        <div class="flex justify-between items-start mb-3 flex-shrink-0">
+            <div>
+                <h3 class="text-base font-black text-white">🗺️ 地籍圖標示與面積</h3>
+                <p class="text-[10px] text-slate-500 mt-0.5">輸入地標地籍資料以管理和計算多筆土地面積</p>
+            </div>
+            <div class="flex items-center gap-2 -mt-1.5">
+                <button id="cadastral-size-btn" onclick="toggleCadastralMaximize()" class="tap text-slate-500 hover:text-white text-base p-1.5 leading-none transition-colors" title="切換最大化">🗖</button>
+                <button onclick="closeCadastralModal()" class="tap text-slate-500 hover:text-white text-2xl p-1.5 leading-none -mt-0.5">&times;</button>
+            </div>
+        </div>
+
+        <!-- County / District / Zone selectors (3-column equal width) -->
+        <div class="relative mb-2 flex-shrink-0">
+            <div class="grid grid-cols-3 gap-2 pr-10">
+                <div>
+                    <label class="lbl text-[10px] text-slate-400">所在縣市</label>
+                    <select id="cadastral-county-select" class="inp text-xs py-2 bg-slate-900 border-slate-700 text-slate-200" onchange="onCadastralCountyChange()">
+                    </select>
+                </div>
+                <div>
+                    <label class="lbl text-[10px] text-slate-400">行政區</label>
+                    <select id="cadastral-district-select" class="inp text-xs py-2 bg-slate-900 border-slate-700 text-slate-200" onchange="onCadastralDistrictChange()">
+                    </select>
+                </div>
+                <div>
+                    <label class="lbl text-[10px] text-slate-400">使用分區</label>
+                    <select id="cadastral-zone-select" class="inp text-xs py-2 bg-slate-900 border-slate-700 text-slate-200" onchange="onCadastralZoneChange()">
+                        <option value="">— 請選擇 —</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="refreshCadastralData()" class="tap absolute right-0 bottom-0 w-[34px] h-[34px] flex items-center justify-center bg-slate-800 border border-slate-700 text-slate-300 hover:text-white rounded-xl active:scale-95 transition-all" title="清除所有資料">
+                ↻
+            </button>
+        </div>
+
+        <!-- Utility controls (CSV & Official Link) -->
+        <div class="flex flex-wrap items-center gap-2 mb-3 flex-shrink-0">
+            <a href="https://easymap.land.moi.gov.tw/" target="_blank" class="tap flex items-center justify-center gap-1 px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-750 border border-slate-700/60 text-blue-400 hover:text-blue-300 rounded-lg font-bold text-[10.5px] transition-all">
+                🌐 內政部便民系統 ↗
+            </a>
+            <button onclick="downloadCadastralTemplate()" class="tap flex items-center justify-center gap-1 px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-750 border border-slate-700/60 text-emerald-400 hover:text-emerald-300 rounded-lg font-bold text-[10.5px] transition-all">
+                📥 下載 CSV 範本
+            </button>
+            <button onclick="triggerCSVImport()" class="tap flex items-center justify-center gap-1 px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-750 border border-slate-700/60 text-violet-400 hover:text-violet-300 rounded-lg font-bold text-[10.5px] transition-all">
+                📤 匯入 CSV / Excel 資料
+            </button>
+            <input type="file" id="cadastral-csv-file" accept=".csv, .xlsx, .xls" class="hidden" onchange="importCadastralCSV(this)">
+        </div>
+
+        <!-- Collapsible List container (grows to fill height) -->
+        <div class="flex-1 flex flex-col min-h-[150px] relative mb-3 rounded-xl border border-slate-700/50 bg-slate-900/40 p-3 overflow-hidden">
+            <!-- Header bar for LOT -->
+            <div class="flex justify-between items-center cursor-pointer mb-2.5 pb-2 border-b border-slate-800 flex-shrink-0" onclick="toggleCadastralList()">
+                <div class="flex items-center gap-2">
+                    <span class="w-[30px] h-[30px] bg-indigo-600/20 border border-indigo-500/40 text-indigo-400 rounded-lg flex items-center justify-center font-black text-[10px]">LOT</span>
+                    <span class="text-xs font-black text-white">土地標示與面積管理</span>
+                </div>
+                <div class="flex items-center gap-1 text-slate-400">
+                    <span id="cadastral-summary-text" class="text-[10px] font-bold text-slate-300">總面積: 0.0 坪 (0 筆)</span>
+                    <span id="cadastral-toggle-arrow" class="text-[10px] transition-transform duration-300">▲</span>
+                </div>
+            </div>
+
+            <!-- Scrollable list content -->
+            <div id="cadastral-list-content" class="flex-1 flex flex-col overflow-hidden">
+                <div id="cadastral-rows-container" class="flex-1 overflow-y-auto pr-1 space-y-3">
+                    <!-- Dynamic Rows -->
+                </div>
+                <div class="pt-2 flex-shrink-0 flex gap-2">
+                    <button onclick="addCadastralRow()" class="far-add flex-[2] py-2 border border-slate-700/80 hover:border-slate-600 bg-slate-800/40 hover:bg-slate-800/60 rounded-xl text-xs text-slate-300 hover:text-white flex items-center justify-center gap-1 transition-all">
+                        ＋ 新增地號
+                    </button>
+                    <button onclick="applyCadastralProportions()" class="tap flex-[1] py-2 bg-emerald-600 hover:bg-emerald-500 border border-emerald-500/40 text-white text-xs font-black rounded-xl flex items-center justify-center transition-all shadow-md">
+                        比例完成
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Action buttons -->
+        <div class="space-y-3 flex-shrink-0">
+            <button onclick="applyCadastralTotalArea()" class="tap w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-sm shadow-lg shadow-indigo-950/30 flex items-center justify-center gap-2 transition-all">
+                ✓&ensp;套用總面積，返回試算頁面
+            </button>
+            <button onclick="closeCadastralModal()" class="tap w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-all">
+                返回主要操作畫面
+            </button>
+        </div>
+    </div>
+</div>
+
+</div><!-- end phone-frame -->
+
+<!-- 載入模組化拆分後的腳本檔 (維持免伺服器直接運行相容性) -->
+    <script src="src/state.js?v=20260702_v21"></script>
+    <script src="src/calculations.js?v=20260702_v21"></script>
+    <script src="src/map.js?v=20260702_v21"></script>
+    <script src="src/pptx.js?v=20260702_v21"></script>
+    <script src="src/app.js?v=20260702_v21"></script>
+<!-- Staging Table Modal (綜合審計確認前台) -->
+<div id="staging-table-modal" class="hidden fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md overflow-y-auto py-12 px-4">
+    <div class="glass max-w-lg w-full border-purple-500/30 p-6 space-y-5 mx-auto">
+        <!-- Header -->
+        <div class="flex justify-between items-center pb-3 border-b border-slate-800">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">🛠️</span>
+                <h3 class="text-base font-black text-white">數據中繼審計確認前台</h3>
+            </div>
+            <button onclick="closeStagingModal()" class="text-slate-400 hover:text-white text-lg font-black">&times;</button>
+        </div>
+
+        <p class="text-xs text-slate-400 leading-relaxed">
+            在一鍵生成簡報前，請在此確認或微調本案的所有核心財務變數（統一以 **萬元** 為單位）與 AI 結論 Action Title。系統將自動進行公式二驗，確認方程式 100% 平衡。
+        </p>
+
+        <!-- 區域一：核心財務審計與二驗 -->
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
+            <h4 class="text-xs font-bold text-purple-300">💰 財務變數審計 (萬元)</h4>
+            
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                    <label class="lbl text-slate-400 mb-1">預估總銷售收益 (A)</label>
+                    <input type="number" id="stage-builderRevenue" oninput="recalcStaging()" class="inp py-1.5 px-2 bg-slate-950 border-slate-800 text-slate-200">
+                </div>
+                <div>
+                    <label class="lbl text-slate-400 mb-1">預估總投入成本 (B)</label>
+                    <input type="number" id="stage-totalCost" oninput="recalcStaging()" class="inp py-1.5 px-2 bg-slate-950 border-slate-800 text-slate-200">
+                </div>
+                <div>
+                    <label class="lbl text-slate-400 mb-1"> - 營建總造價</label>
+                    <input type="number" id="stage-totalConstructionCost" oninput="recalcStaging()" class="inp py-1.5 px-2 bg-slate-950 border-slate-800 text-slate-200">
+                </div>
+                <div>
+                    <label id="stage-totalLandCost-label" class="lbl text-slate-400 mb-1"> - 土地取得成本</label>
+                    <input type="number" id="stage-totalLandCost" oninput="recalcStaging()" class="inp py-1.5 px-2 bg-slate-950 border-slate-800 text-slate-200">
+                </div>
+                <div>
+                    <label class="lbl text-slate-400 mb-1"> - 利息與管銷成本</label>
+                    <input type="number" id="stage-interestAdmin" oninput="recalcStaging()" class="inp py-1.5 px-2 bg-slate-950 border-slate-800 text-slate-200">
+                </div>
+                <div>
+                    <label class="lbl text-slate-400 mb-1">車位銷售額</label>
+                    <input type="number" id="stage-parkingRev" oninput="recalcStaging()" class="inp py-1.5 px-2 bg-slate-950 border-slate-800 text-slate-200">
+                </div>
+            </div>
+
+            <!-- 公式二驗狀態 -->
+            <div id="stage-audit-verdict" class="p-3 bg-emerald-950/20 border border-emerald-800/30 rounded-xl flex items-center justify-between text-xs mt-2">
+                <span class="text-slate-400">公式平衡二驗 (A - B === 淨利)：</span>
+                <span id="stage-audit-status" class="font-black text-emerald-400 flex items-center gap-1">
+                    <span class="text-sm">✅</span> 方程式百分百平衡
+                </span>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-2 text-center text-xs pt-1">
+                <div class="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                    <div class="text-[9px] text-slate-500">預估開發淨利</div>
+                    <div id="stage-netProfit-disp" class="font-mono font-black text-white text-xs mt-0.5">-- 萬</div>
+                </div>
+                <div class="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                    <div class="text-[9px] text-slate-500">預估投資報酬率</div>
+                    <div id="stage-roi-disp" class="font-mono font-black text-white text-xs mt-0.5">-- %</div>
+                </div>
+                <div class="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                    <div class="text-[9px] text-slate-500">損益平衡點 (BEP)</div>
+                    <div id="stage-bep-disp" class="font-mono font-black text-white text-xs mt-0.5">-- 萬/坪</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 區域二：簡報 Action Title 與 10字標題/30字亮點自訂 -->
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
+            <h4 class="text-xs font-bold text-purple-300">📝 簡報結論標題與核心亮點編輯</h4>
+            
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="lbl text-slate-400 mb-1">Slide 2 結論大標題 (執行摘要)</label>
+                    <input type="text" id="stage-s2-title" class="inp py-1.5 px-2.5 bg-slate-950 border-slate-800 text-slate-200">
+                </div>
+                <div>
+                    <label class="lbl text-slate-400 mb-1">Slide 10 結論大標題 (預估損益表)</label>
+                    <input type="text" id="stage-s10-title" class="inp py-1.5 px-2.5 bg-slate-950 border-slate-800 text-slate-200">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="lbl text-slate-400 mb-1">核心亮點一 (10字標題 / 30字內容)</label>
+                        <input type="text" id="stage-h1-title" placeholder="10字標題" class="inp py-1 bg-slate-950 border-slate-800 text-slate-200 text-[11px] mb-1">
+                        <textarea id="stage-h1-body" placeholder="30字核心亮點" rows="2" class="inp p-1 bg-slate-950 border-slate-800 text-slate-200 text-[11px] resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="lbl text-slate-400 mb-1">核心亮點二 (10字標題 / 30字內容)</label>
+                        <input type="text" id="stage-h2-title" placeholder="10字標題" class="inp py-1 bg-slate-950 border-slate-800 text-slate-200 text-[11px] mb-1">
+                        <textarea id="stage-h2-body" placeholder="30字核心亮點" rows="2" class="inp p-1 bg-slate-950 border-slate-800 text-slate-200 text-[11px] resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 區域三：工期與時間軸節點編輯 -->
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
+            <h4 class="text-xs font-bold text-purple-300">📅 工期與時間軸進度</h4>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                    <label class="lbl text-slate-400 mb-1">預估營建工期 (月)</label>
+                    <input type="number" id="stage-constMonths" oninput="recalcTimeline()" class="inp py-1.5 px-2 bg-slate-950 border-slate-800 text-slate-200">
+                </div>
+                <div class="flex items-end">
+                    <p class="text-[10px] text-slate-500 leading-normal pb-1">
+                        * 系統將自動按 15%、15%、40%、30% 比例拆分 STAGE 1~4 工期。
+                    </p>
+                </div>
+            </div>
+            
+            <!-- 時間軸節點預覽 -->
+            <div class="grid grid-cols-4 gap-2 text-center text-[10px] pt-1">
+                <div class="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                    <div class="text-slate-500 font-bold">STAGE 01</div>
+                    <div id="stage-t1-range" class="text-amber-400 font-mono mt-0.5">--</div>
+                </div>
+                <div class="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                    <div class="text-slate-500 font-bold">STAGE 02</div>
+                    <div id="stage-t2-range" class="text-amber-400 font-mono mt-0.5">--</div>
+                </div>
+                <div class="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                    <div class="text-slate-500 font-bold">STAGE 03</div>
+                    <div id="stage-t3-range" class="text-amber-400 font-mono mt-0.5">--</div>
+                </div>
+                <div class="bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                    <div class="text-slate-500 font-bold">STAGE 04</div>
+                    <div id="stage-t4-range" class="text-amber-400 font-mono mt-0.5">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 區域零：Google Static Maps API Key 設定（A 軌自動抓圖） -->
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-emerald-800/40 space-y-2">
+            <h4 class="text-xs font-bold text-emerald-300">🔑 Google Static Maps API Key（A 軌：自動衛星圖）</h4>
+            <p class="text-[10px] text-slate-400 leading-relaxed">
+                填入後，P04 地籍圖將自動抓取 Google 衛星影像嵌入簡報（免手動截圖）。Key 將儲存於本機 localStorage，不會上傳至伺服器。
+            </p>
+            <div class="flex items-center gap-2">
+                <input type="password" id="stage-gmaps-key"
+                    placeholder="AIzaSy...（貼上您的 API Key）"
+                    class="inp flex-1 py-1.5 px-2 bg-slate-950 border-slate-700 text-slate-200 text-[10px] font-mono"
+                    oninput="saveGMapsKey()"
+                >
+                <button onclick="toggleGMapsKeyVisibility()" class="text-[9px] text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded border border-slate-700">👁️</button>
+                <button onclick="clearGMapsKey()" class="text-[9px] text-red-400 hover:text-red-300 px-2 py-1">✕ 清除</button>
+            </div>
+            <div id="gmaps-key-status" class="text-[10px] text-slate-500">尚未設定 API Key</div>
+        </div>
+
+        <!-- 區域四：圖資嵌入中繼層 (Staging Table B 軌) -->
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
+            <h4 class="text-xs font-bold text-amber-300">🗺️ 圖資嵌入中繼層（B 軌：手動圖片上傳）</h4>
+            <p class="text-[10px] text-slate-400 leading-relaxed">上傳後，圖片將自動嵌入 PPTX 對應投影片。支援 PNG / JPG / WEBP，建議解析度 1280×720 以上。</p>
+
+            <!-- P06 建築量體 3D 模擬圖 -->
+            <div class="space-y-1.5">
+                <label class="text-[10px] font-bold text-slate-300 block">🏢 P06 建築量體示意圖 / 3D 模擬圖</label>
+                <div class="flex items-center gap-2">
+                    <label class="flex-1 cursor-pointer">
+                        <div id="upload-3d-btn" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px] rounded-lg border border-dashed border-slate-600 text-center transition-colors">
+                            📁 點擊上傳或拖曳 PNG / JPG
+                        </div>
+                        <input type="file" id="upload-3d-input" accept="image/*" class="hidden" onchange="handleStagingImageUpload('render3d', this, 'upload-3d-preview', 'upload-3d-btn')">
+                    </label>
+                    <button onclick="clearStagingImage('render3d', 'upload-3d-preview', 'upload-3d-btn')" class="text-[9px] text-red-400 hover:text-red-300 px-2">✕ 清除</button>
+                </div>
+                <button type="button" onclick="openFacadeFinderModal()" class="w-full py-1.5 px-3 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/40 text-emerald-400 text-[9px] font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md">
+                    🔍 從「建築外觀搜尋器」選取素材
+                </button>
+                <div id="upload-3d-preview" class="hidden">
+                    <img id="upload-3d-img" class="w-full rounded-lg border border-slate-700 object-cover" style="max-height:120px; object-fit:cover;" alt="P06 3D 模擬圖預覽">
+                </div>
+            </div>
+
+            <!-- P03/P04 地圖截圖 -->
+            <div class="space-y-1.5 pt-1 border-t border-slate-800">
+                <label class="text-[10px] font-bold text-slate-300 block">🗺️ P03/P04 基地區位地圖截圖</label>
+                <div class="flex items-center gap-2">
+                    <label class="flex-1 cursor-pointer">
+                        <div id="upload-map-btn" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px] rounded-lg border border-dashed border-slate-600 text-center transition-colors">
+                            📁 點擊上傳地圖截圖 PNG / JPG
+                        </div>
+                        <input type="file" id="upload-map-input" accept="image/*" class="hidden" onchange="handleStagingImageUpload('mapShot', this, 'upload-map-preview', 'upload-map-btn')">
+                    </label>
+                    <button onclick="clearStagingImage('mapShot', 'upload-map-preview', 'upload-map-btn')" class="text-[9px] text-red-400 hover:text-red-300 px-2">✕ 清除</button>
+                </div>
+                <div id="upload-map-preview" class="hidden">
+                    <img id="upload-map-img" class="w-full rounded-lg border border-slate-700 object-cover" style="max-height:120px; object-fit:cover;" alt="P03 地圖截圖預覽">
+                </div>
+            </div>
+
+            <!-- P05 街景截圖 -->
+            <div class="space-y-1.5 pt-1 border-t border-slate-800">
+                <label class="text-[10px] font-bold text-slate-300 block">📸 P05 基地現況街景截圖</label>
+                <div class="flex items-center gap-2">
+                    <label class="flex-1 cursor-pointer">
+                        <div id="upload-street-btn" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px] rounded-lg border border-dashed border-slate-600 text-center transition-colors">
+                            📁 點擊上傳街景截圖 PNG / JPG
+                        </div>
+                        <input type="file" id="upload-street-input" accept="image/*" class="hidden" onchange="handleStagingImageUpload('streetView', this, 'upload-street-preview', 'upload-street-btn')">
+                    </label>
+                    <button onclick="clearStagingImage('streetView', 'upload-street-preview', 'upload-street-btn')" class="text-[9px] text-red-400 hover:text-red-300 px-2">✕ 清除</button>
+                </div>
+                <div id="upload-street-preview" class="hidden">
+                    <img id="upload-street-img" class="w-full rounded-lg border border-slate-700 object-cover" style="max-height:120px; object-fit:cover;" alt="P05 街景截圖預覽">
+                </div>
+            </div>
+        </div>
+
+        <!-- 按鈕操作列 -->
+
+        <div class="flex gap-3 pt-2">
+            <button onclick="closeStagingModal()" class="tap flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-black rounded-xl text-xs border border-slate-700/50">
+                取消返回
+            </button>
+            <button onclick="commitStagingAndGenerate()" class="tap flex-1 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 border border-violet-500/20 text-white font-black rounded-xl text-xs shadow-lg shadow-indigo-500/10">
+                確認無誤，一鍵生成 PPT
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- EasyMap Helper Modal -->
+<div id="easyMapHelpModal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass p-6 max-w-sm w-full border-amber-500/20 text-center space-y-4">
+        <div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl mx-auto animate-pulse">
+            🗺️
+        </div>
+        <h3 class="text-base font-black text-white">已開啟內政部電子地圖</h3>
+        <p class="text-xs text-slate-400 leading-relaxed text-left">
+            系統已開啟新視窗前往 **「地籍圖資網路便民服務系統」**。<br><br>
+            請於該官方網頁查詢您所需的「公告地價」或「公告現值」後，<strong>直接關閉該瀏覽器分頁</strong>（或返回此應用程式）即可。
+        </p>
+        <button onclick="document.getElementById('easyMapHelpModal').classList.add('hidden')" class="tap w-full py-3 bg-amber-600/80 hover:bg-amber-500/80 border border-amber-400/40 text-white font-black rounded-xl text-xs shadow-lg shadow-amber-500/10">
+            返回操作頁面
+        </button>
+    </div>
+</div>
+<!-- Facade Finder Modal (建築外觀立面搜尋器) -->
+<div id="facade-finder-modal" class="hidden fixed inset-0 z-[10000] bg-slate-950/90 backdrop-blur-md flex flex-col justify-center items-center p-4">
+    <div class="glass w-full h-[95vh] max-w-5xl border-emerald-500/30 flex flex-col relative overflow-hidden">
+        <!-- Close Button -->
+        <button onclick="closeFacadeFinderModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl font-black z-50 bg-slate-900/80 hover:bg-slate-800 w-10 h-10 rounded-full flex items-center justify-center border border-slate-700 transition-colors">&times;</button>
+        <!-- Iframe container -->
+        <iframe id="facade-finder-iframe" src="" class="w-full h-full border-none bg-slate-950"></iframe>
+    </div>
+</div>
+
+</body>
+</html>

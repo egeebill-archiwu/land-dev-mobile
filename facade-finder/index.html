@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>建築外觀立面搜尋器 | Facade Finder</title>
+  
+  <script>
+    // 瀏覽器報錯即時回傳監聽器
+    window.onerror = function(message, source, lineno, colno, error) {
+      fetch('/log_error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, source, lineno, colno, stack: error ? error.stack : '' })
+      }).catch(e => {});
+    };
+    window.addEventListener('unhandledrejection', function(event) {
+      fetch('/log_error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: event.reason ? event.reason.message : 'Promise Rejection', stack: event.reason ? event.reason.stack : '' })
+      }).catch(e => {});
+    });
+  </script>
+  
+  <meta name="description" content="專業的建築外觀立面圖庫搜尋篩選與整理工具，提供帷幕、石材、鐵件、磁磚等多種建材及樓層數篩選，是設計師與建築師的素材參照利器。">
+  
+  <!-- Google Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- 側邊篩選欄 (Sidebar) -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon material-symbols-outlined">domain</span>
+          <div class="logo-text">
+            <span class="logo-title">FACADE</span>
+            <span class="logo-subtitle">FINDER</span>
+          </div>
+        </div>
+        <p class="brand-desc">建築立面與建材搜尋器</p>
+      </div>
+
+      <nav class="sidebar-nav">
+        <!-- 搜尋分類1: 建材分類 -->
+        <div class="filter-group">
+          <h3 class="filter-title">
+            <span class="material-symbols-outlined">texture</span> 建材分類
+          </h3>
+          <div class="filter-options" id="material-filters">
+            <label class="filter-checkbox-label">
+              <input type="checkbox" value="帷幕" data-type="material">
+              <span class="custom-checkbox"></span>
+              <span class="filter-label-text">帷幕 (Curtain Wall)</span>
+            </label>
+            <label class="filter-checkbox-label">
+              <input type="checkbox" value="石材" data-type="material">
+              <span class="custom-checkbox"></span>
+              <span class="filter-label-text">石材 (Stone)</span>
+            </label>
+            <label class="filter-checkbox-label">
+              <input type="checkbox" value="鐵件" data-type="material">
+              <span class="custom-checkbox"></span>
+              <span class="filter-label-text">鐵件/金屬 (Metal)</span>
+            </label>
+            <label class="filter-checkbox-label">
+              <input type="checkbox" value="磁磚" data-type="material">
+              <span class="custom-checkbox"></span>
+              <span class="filter-label-text">磁磚 (Tiles)</span>
+            </label>
+            <label class="filter-checkbox-label">
+              <input type="checkbox" value="清水模" data-type="material">
+              <span class="custom-checkbox"></span>
+              <span class="filter-label-text">清水模 (Concrete)</span>
+            </label>
+            <label class="filter-checkbox-label">
+              <input type="checkbox" value="木質" data-type="material">
+              <span class="custom-checkbox"></span>
+              <span class="filter-label-text">木質 (Wood)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 搜尋分類2: 樓層分類 -->
+        <div class="filter-group">
+          <h3 class="filter-title">
+            <span class="material-symbols-outlined">layers</span> 樓層數篩選
+          </h3>
+          <div class="filter-options" id="floor-range-presets">
+            <button class="floor-preset-btn active" data-range="all">全部樓層</button>
+            <button class="floor-preset-btn" data-range="1-5">低層 (1-5F)</button>
+            <button class="floor-preset-btn" data-range="6-12">中層 (6-12F)</button>
+            <button class="floor-preset-btn" data-range="13-999">高層 (13F+)</button>
+          </div>
+          <!-- 自訂樓層拉桿 -->
+          <div class="custom-slider-container">
+            <div class="slider-labels">
+              <span>樓層範圍:</span>
+              <span id="slider-range-val">1 - 100 F</span>
+            </div>
+            <div class="range-inputs">
+              <input type="range" id="floor-min" min="1" max="100" value="1" class="floor-slider">
+              <input type="range" id="floor-max" min="1" max="100" value="100" class="floor-slider">
+            </div>
+          </div>
+        </div>
+
+        <!-- 搜尋分類3: 風格分類 -->
+        <div class="filter-group">
+          <h3 class="filter-title">
+            <span class="material-symbols-outlined">palette</span> 建築風格
+          </h3>
+          <div class="filter-options style-tags-container" id="style-filters">
+            <label class="style-tag-label">
+              <input type="checkbox" value="現代" data-type="style">
+              <span class="style-tag-text">現代風</span>
+            </label>
+            <label class="style-tag-label">
+              <input type="checkbox" value="工業" data-type="style">
+              <span class="style-tag-text">工業風</span>
+            </label>
+            <label class="style-tag-label">
+              <input type="checkbox" value="極簡" data-type="style">
+              <span class="style-tag-text">極簡風</span>
+            </label>
+            <label class="style-tag-label">
+              <input type="checkbox" value="古典" data-type="style">
+              <span class="style-tag-text">古典風</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 快速收藏篩選 -->
+        <div class="filter-group favorites-quick-filter">
+          <button class="fav-filter-btn" id="fav-only-btn">
+            <span class="material-symbols-outlined icon-fill">bookmark</span>
+            <span>僅顯示我的收藏</span>
+            <span class="fav-badge" id="fav-count">0</span>
+          </button>
+        </div>
+
+        <!-- 外部資源與聯外搜尋 -->
+        <div class="filter-group external-resources-group">
+          <h3 class="filter-title">
+            <span class="material-symbols-outlined">open_in_new</span> 聯外搜尋靈感
+          </h3>
+          <div class="external-search-buttons">
+            <a href="#" id="ext-search-pinterest" target="_blank" class="ext-search-btn">
+              <svg class="ext-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.966 1.406-5.966s-.359-.72-.359-1.781c0-1.663.967-2.907 2.167-2.907 1.02 0 1.513.769 1.513 1.689 0 1.029-.656 2.568-.994 3.995-.28 1.197.6 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C11.12 23.949 11.558 24 12.017 24 18.639 24 24 18.63 24 11.987 24 5.367 18.639 0 12.017 0z"/></svg>
+              <span>在 Pinterest 搜尋</span>
+            </a>
+            <a href="#" id="ext-search-archdaily" target="_blank" class="ext-search-btn">
+              <span class="material-symbols-outlined">menu_book</span>
+              <span>在 ArchDaily 搜尋</span>
+            </a>
+            <a href="#" id="ext-search-dezeen" target="_blank" class="ext-search-btn">
+              <span class="material-symbols-outlined">design_services</span>
+              <span>在 Dezeen 搜尋</span>
+            </a>
+          </div>
+        </div>
+      </nav>
+
+      <!-- 側邊欄底部資訊 -->
+      <div class="sidebar-footer">
+        <div class="stats-row">
+          <span>庫存參考素材:</span>
+          <strong id="total-count">0</strong>
+        </div>
+        <div class="db-actions">
+          <button class="db-btn outline" id="export-btn" title="匯出當前素材庫為 JSON 檔案">
+            <span class="material-symbols-outlined">download</span> 匯出庫
+          </button>
+          <button class="db-btn outline" id="import-trigger" title="載入先前匯出的 JSON 素材庫">
+            <span class="material-symbols-outlined">upload</span> 匯入庫
+          </button>
+          <input type="file" id="import-file" accept=".json" style="display: none;">
+        </div>
+      </div>
+    </aside>
+
+    <!-- 主要內容區 (Main Content) -->
+    <main class="main-content">
+      
+      <!-- 頂部操作列 (Header Area) -->
+      <header class="header">
+        <!-- 手機版選單切換按鈕 -->
+        <button class="menu-toggle" id="menu-toggle" aria-label="切換側邊欄">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
+
+        <!-- 手機版篩選快捷按鈕（僅手機顯示）-->
+        <button class="mobile-filter-toggle" id="mobile-filter-toggle" aria-label="開啟篩選">
+          <span class="material-symbols-outlined">tune</span>
+          <span class="mobile-filter-badge" id="mobile-filter-badge" style="display:none;">0</span>
+        </button>
+
+        <div class="search-bar-container">
+          <span class="search-icon material-symbols-outlined">search</span>
+          <input type="search" id="search-input" placeholder="搜尋建材、風格、關鍵字或標籤..." aria-label="搜尋建築立面">
+          <button class="clear-search-btn" id="clear-search" aria-label="清除搜尋">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="header-actions">
+          <div class="sort-container">
+            <span class="material-symbols-outlined sort-icon">sort</span>
+            <select id="sort-select" class="sort-select" aria-label="排序方式">
+              <option value="default">預設排序</option>
+              <option value="floor-asc">樓層：低 → 高</option>
+              <option value="floor-desc">樓層：高 → 低</option>
+              <option value="newest">最新加入</option>
+            </select>
+          </div>
+
+          <button class="add-material-btn" id="add-material-btn">
+            <span class="material-symbols-outlined">add_circle</span>
+            <span>新增立面素材</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- 視圖分頁切換 (View Tabs) -->
+      <div class="view-tabs">
+        <button class="view-tab-btn active" data-view="local-library">
+          <span class="material-symbols-outlined">grid_view</span>
+          <span>本機素材庫</span>
+        </button>
+        <button class="view-tab-btn" data-view="pinterest-boards">
+          <svg class="pinterest-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.966 1.406-5.966s-.359-.72-.359-1.781c0-1.663.967-2.907 2.167-2.907 1.02 0 1.513.769 1.513 1.689 0 1.029-.656 2.568-.994 3.995-.28 1.197.6 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C11.12 23.949 11.558 24 12.017 24 18.639 24 24 18.63 24 11.987 24 5.367 18.639 0 12.017 0z"/></svg>
+          <span>Pinterest 靈感庫</span>
+        </button>
+        <button class="view-tab-btn" data-view="global-search">
+          <span class="material-symbols-outlined">language</span>
+          <span>全球大師案例</span>
+        </button>
+      </div>
+
+      <!-- 重置篩選提示條 -->
+      <div class="active-filters-bar" id="active-filters-bar" style="display: none;">
+        <span class="active-filters-title">已啟用篩選：</span>
+        <div class="active-tags" id="active-tags-list"></div>
+        <button class="clear-all-filters-btn" id="clear-all-filters">清除全部</button>
+      </div>
+
+      <!-- 素材展示網格 (Grid Area) -->
+      <section class="gallery-container">
+        <!-- 本機素材網格 -->
+        <div class="gallery-grid" id="gallery-grid">
+          <!-- 卡片將由 JavaScript 動態生成 -->
+        </div>
+
+        <!-- 查無結果之空狀態 -->
+        <div class="empty-state" id="empty-state" style="display: none;">
+          <span class="material-symbols-outlined empty-icon">folder_open</span>
+          <h2>沒有找到符合的立面素材</h2>
+          <p>請嘗試調整您的篩選條件、減少勾選的建材或重新輸入關鍵字。</p>
+          <button class="reset-search-btn" id="reset-search-btn">重置篩選條件</button>
+        </div>
+
+        <!-- Pinterest 嵌入搜尋容器 -->
+        <div class="pinterest-container" id="pinterest-container" style="display: none;">
+          <!-- Google CSE 搜尋 Widget 嵌入區 -->
+          <div class="gcse-searchresults-only" gname="pinterest-search" data-as_sitesearch="pinterest.com" data-enableImageUrlScaling="true"></div>
+          
+          <!-- 原生外部卡片網格 (當 CSE 被阻擋時的備用渲染區) -->
+          <div class="gallery-grid" id="pinterest-search-grid" style="width: 100%; display: none;">
+            <!-- 搜尋結果卡片將由 JavaScript 動態生成 -->
+          </div>
+          
+          <!-- 載入中與狀態提示 -->
+          <div class="cse-loading-status" id="pinterest-search-loading" style="text-align: center; padding: 4rem 0; color: var(--text-secondary); width: 100%; display: none;">
+            <span class="material-symbols-outlined animated-spin" style="font-size: 2rem; margin-bottom: 0.5rem; display: inline-block; animation: spin 1.5s linear infinite;">sync</span>
+            <p>正在連接 Pinterest 全網靈感搜尋插頭...</p>
+          </div>
+        </div>
+
+        <!-- 全球建築搜尋容器 -->
+        <div class="global-search-container" id="global-search-container" style="display: none;">
+          <div class="global-search-info-card">
+            <span class="material-symbols-outlined global-search-icon">travel_explore</span>
+            <h3>全球建築靈感一站式搜尋</h3>
+            <p>透過嵌入式搜尋插頭，直接在搜尋器內對 <strong>Pinterest、ArchDaily、Dezeen</strong> 進行全網立面圖像與網頁檢索！結果直接在本頁呈現。</p>
+          </div>
+          
+          <!-- Google CSE 搜尋 Widget 嵌入區 -->
+          <div class="gcse-searchresults-only" gname="global-search" data-as_sitesearch="archdaily.com,dezeen.com" data-enableImageUrlScaling="true"></div>
+          
+          <!-- 原生外部卡片網格 (當 CSE 被阻擋時的備用渲染區) -->
+          <div class="gallery-grid" id="global-search-grid" style="width: 100%; display: none;">
+            <!-- 搜尋結果卡片將由 JavaScript 動態生成 -->
+          </div>
+          
+          <!-- 載入中與狀態提示 -->
+          <div class="cse-loading-status" id="global-search-loading" style="text-align: center; padding: 4rem 0; color: var(--text-secondary); width: 100%; display: none;">
+            <span class="material-symbols-outlined animated-spin" style="font-size: 2rem; margin-bottom: 0.5rem; display: inline-block; animation: spin 1.5s linear infinite;">sync</span>
+            <p>正在連接全球大師案例搜尋插頭...</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 詳細資料燈箱模態框 (Detail Lightbox Modal) -->
+  <div class="modal-overlay" id="detail-modal" aria-hidden="true">
+    <div class="modal-container detail-modal-container">
+      <button class="modal-close-btn" id="detail-close" aria-label="關閉詳情">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      
+      <div class="detail-layout">
+        <!-- 圖片區 -->
+        <div class="detail-image-wrapper">
+          <img src="" id="detail-image" alt="建築立面">
+          <div class="detail-image-overlay">
+            <button class="favorite-toggle-btn" id="detail-fav-toggle" title="加入收藏">
+              <span class="material-symbols-outlined">bookmark</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 資訊欄區 -->
+        <div class="detail-info-panel">
+          <div class="detail-header">
+            <h2 class="detail-title" id="detail-title">建築立面名稱</h2>
+            <div class="detail-meta">
+              <span class="detail-floor" id="detail-floor">0F</span>
+              <span class="detail-style-badge" id="detail-style">現代風</span>
+            </div>
+          </div>
+
+          <div class="detail-body">
+            <!-- 標籤分類 -->
+            <div class="detail-section">
+              <h4 class="section-title">搭配建材</h4>
+              <div class="detail-tags-list" id="detail-materials">
+                <!-- 建材標籤 -->
+              </div>
+            </div>
+
+            <!-- 色調分析 -->
+            <div class="detail-section">
+              <h4 class="section-title">外觀主色調 (Color Palette)</h4>
+              <div class="detail-color-palette" id="detail-palette">
+                <!-- 配色方格 -->
+              </div>
+            </div>
+
+            <!-- 備忘筆記 -->
+            <div class="detail-section memo-section">
+              <h4 class="section-title">
+                <span>設計備忘筆記</span>
+                <span class="saving-indicator" id="memo-saved-indicator">已自動儲存</span>
+              </h4>
+              <textarea id="detail-memo" placeholder="輸入此立面材質的設計要點、配合廠商或參考備註..."></textarea>
+            </div>
+          </div>
+
+          <div class="detail-footer">
+            <div class="creation-time" id="detail-time">加入時間：2026/07/06</div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button class="import-to-app-btn" id="import-to-app-btn" style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px; transition: background 0.2s; font-family: var(--font-chinese);" onmouseover="this.style.background='#0d9488'" onmouseout="this.style.background='#10b981'">
+                <span class="material-symbols-outlined" style="font-size: 14px;">check_circle</span> 選擇此立面匯入
+              </button>
+              <button class="delete-material-btn" id="detail-delete-btn" title="刪除此素材">
+                <span class="material-symbols-outlined">delete</span> 刪除
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增/編輯素材模態視窗 (Add/Edit Material Modal) -->
+  <div class="modal-overlay" id="add-modal" aria-hidden="true">
+    <div class="modal-container form-modal-container">
+      <div class="modal-header">
+        <h2 class="modal-title">新增立面參考素材</h2>
+        <button class="modal-close-btn" id="add-close" aria-label="關閉表單">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      
+      <form class="material-form" id="material-form">
+        <!-- 圖片上傳/網址 -->
+        <div class="form-group image-upload-group">
+          <label class="form-label">立面圖片 <span class="required">*</span></label>
+          <div class="upload-tabs">
+            <button type="button" class="upload-tab-btn active" data-tab="upload-file">本機上傳</button>
+            <button type="button" class="upload-tab-btn" data-tab="upload-url">外部圖片網址</button>
+          </div>
+          
+          <div class="upload-contents">
+            <div class="upload-tab-content active" id="tab-upload-file">
+              <div class="drag-drop-zone" id="drag-drop-zone">
+                <span class="material-symbols-outlined upload-icon">cloud_upload</span>
+                <p>將圖片拖曳至此處，或 <span class="browse-link">瀏覽檔案</span></p>
+                <span class="file-info-txt">支援 JPG, PNG, WEBP 等格式 (自動進行本地壓縮)</span>
+                <input type="file" id="file-input" accept="image/*" style="display: none;">
+              </div>
+            </div>
+            
+            <div class="upload-tab-content" id="tab-upload-url">
+              <input type="url" id="url-input" class="form-input" placeholder="請輸入完整的圖片 URL (https://...)">
+            </div>
+          </div>
+          <div class="image-preview-container" id="image-preview-container" style="display: none;">
+            <img src="" id="image-preview" alt="預覽圖">
+            <button type="button" class="remove-preview-btn" id="remove-preview" title="移除圖片">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+
+          <!-- Pinterest clipper 說明 -->
+          <div class="pinterest-clipper-tip" id="pinterest-clipper-tip">
+            <span class="material-symbols-outlined tip-icon">lightbulb</span>
+            <div class="tip-content">
+              <strong>💡 靈感整合提示：</strong>
+              <span>您可以在 Pinterest 圖片上點按右鍵選擇「複製圖片位址」，然後切換到上方「外部圖片網址」分頁貼上，即可直接將 Pinterest 的素材「安裝」進您的搜尋器中！</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 名稱與樓層 -->
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label for="form-title" class="form-label">立面名稱/案名 <span class="required">*</span></label>
+            <input type="text" id="form-title" class="form-input" placeholder="例如：信義聯勤 - 玻璃帷幕大樓" required>
+          </div>
+          
+          <div class="form-group flex-1">
+            <label for="form-floor" class="form-label">樓層數 (F) <span class="required">*</span></label>
+            <input type="number" id="form-floor" class="form-input" min="1" max="200" placeholder="樓層數" required>
+          </div>
+        </div>
+
+        <!-- 選擇風格 -->
+        <div class="form-group">
+          <label class="form-label">建築風格 <span class="required">*</span></label>
+          <div class="form-radio-grid">
+            <label class="form-radio-label">
+              <input type="radio" name="form-style" value="現代" checked>
+              <span class="radio-design"></span>
+              <span>現代風</span>
+            </label>
+            <label class="form-radio-label">
+              <input type="radio" name="form-style" value="工業">
+              <span class="radio-design"></span>
+              <span>工業風</span>
+            </label>
+            <label class="form-radio-label">
+              <input type="radio" name="form-style" value="極簡">
+              <span class="radio-design"></span>
+              <span>極簡風</span>
+            </label>
+            <label class="form-radio-label">
+              <input type="radio" name="form-style" value="古典">
+              <span class="radio-design"></span>
+              <span>古典風</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 選擇建材 -->
+        <div class="form-group">
+          <label class="form-label">使用建材 (可多選) <span class="required">*</span></label>
+          <div class="form-checkbox-grid" id="form-materials-grid">
+            <label class="form-checkbox-label">
+              <input type="checkbox" name="form-material" value="帷幕">
+              <span class="checkbox-design"></span>
+              <span>帷幕</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" name="form-material" value="石材">
+              <span class="checkbox-design"></span>
+              <span>石材</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" name="form-material" value="鐵件">
+              <span class="checkbox-design"></span>
+              <span>鐵件/金屬</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" name="form-material" value="磁磚">
+              <span class="checkbox-design"></span>
+              <span>磁磚</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" name="form-material" value="清水模">
+              <span class="checkbox-design"></span>
+              <span>清水模</span>
+            </label>
+            <label class="form-checkbox-label">
+              <input type="checkbox" name="form-material" value="木質">
+              <span class="checkbox-design"></span>
+              <span>木質</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 備註筆記 -->
+        <div class="form-group">
+          <label for="form-memo" class="form-label">說明 / 設計筆記</label>
+          <textarea id="form-memo" class="form-input form-textarea" placeholder="輸入任何關於此建築立面的細節、備註或特殊建材說明..."></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="form-cancel">取消</button>
+          <button type="submit" class="btn btn-primary" id="form-submit">
+            <span class="material-symbols-outlined">check_circle</span> 儲存立面素材
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast" id="toast">提示訊息</div>
+
+  <!-- =============================================
+       手機版專屬元件 (Mobile-Only Components)
+       ============================================= -->
+
+  <!-- 手機版篩選抽屜：遮罩層 -->
+  <div class="filter-sheet-overlay" id="filter-sheet-overlay"></div>
+
+  <!-- 手機版篩選抽屜 (Filter Bottom Sheet) -->
+  <div class="filter-sheet" id="filter-sheet" aria-hidden="true">
+    <!-- 拖曳把手指示條 -->
+    <div class="filter-sheet-handle"></div>
+
+    <div class="filter-sheet-header">
+      <h3 class="filter-sheet-title">
+        <span class="material-symbols-outlined">tune</span>
+        篩選條件
+      </h3>
+      <button class="filter-sheet-close" id="filter-sheet-close" aria-label="關閉篩選">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="filter-sheet-body">
+
+      <!-- 建材分類 -->
+      <div class="filter-sheet-group">
+        <h4 class="filter-sheet-group-title">
+          <span class="material-symbols-outlined">texture</span> 建材分類
+        </h4>
+        <div class="filter-sheet-chips" id="sheet-material-filters">
+          <label class="chip-label">
+            <input type="checkbox" value="帷幕" data-type="material" class="sheet-filter-cb">
+            <span class="chip-text">帷幕</span>
+          </label>
+          <label class="chip-label">
+            <input type="checkbox" value="石材" data-type="material" class="sheet-filter-cb">
+            <span class="chip-text">石材</span>
+          </label>
+          <label class="chip-label">
+            <input type="checkbox" value="鐵件" data-type="material" class="sheet-filter-cb">
+            <span class="chip-text">鐵件</span>
+          </label>
+          <label class="chip-label">
+            <input type="checkbox" value="磁磚" data-type="material" class="sheet-filter-cb">
+            <span class="chip-text">磁磚</span>
+          </label>
+          <label class="chip-label">
+            <input type="checkbox" value="清水模" data-type="material" class="sheet-filter-cb">
+            <span class="chip-text">清水模</span>
+          </label>
+          <label class="chip-label">
+            <input type="checkbox" value="木質" data-type="material" class="sheet-filter-cb">
+            <span class="chip-text">木質</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 建築風格 -->
+      <div class="filter-sheet-group">
+        <h4 class="filter-sheet-group-title">
+          <span class="material-symbols-outlined">palette</span> 建築風格
+        </h4>
+        <div class="filter-sheet-chips" id="sheet-style-filters">
+          <label class="chip-label">
+            <input type="checkbox" value="現代" data-type="style" class="sheet-filter-cb">
+            <span class="chip-text">現代風</span>
+          </label>
+          <label class="chip-label">
+            <input type="checkbox" value="工業" data-type="style" class="sheet-filter-cb">
+            <span class="chip-text">工業風</span>
+          </label>
+          <label class="chip-label">
+            <input type="checkbox" value="極簡" data-type="style" class="sheet-filter-cb">
+            <span class="chip-text">極簡風</span>
+          </label>
+          <label class="chip-label">
+            <input type="checkbox" value="古典" data-type="style" class="sheet-filter-cb">
+            <span class="chip-text">古典風</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 樓層預設 -->
+      <div class="filter-sheet-group">
+        <h4 class="filter-sheet-group-title">
+          <span class="material-symbols-outlined">layers</span> 樓層範圍
+        </h4>
+        <div class="filter-sheet-floor-presets">
+          <button class="sheet-floor-btn active" data-range="all">全部</button>
+          <button class="sheet-floor-btn" data-range="1-5">低層 1-5F</button>
+          <button class="sheet-floor-btn" data-range="6-12">中層 6-12F</button>
+          <button class="sheet-floor-btn" data-range="13-999">高層 13F+</button>
+        </div>
+      </div>
+
+      <!-- 僅顯示收藏 -->
+      <div class="filter-sheet-group">
+        <button class="sheet-fav-btn" id="sheet-fav-btn">
+          <span class="material-symbols-outlined">bookmark</span>
+          <span>僅顯示我的收藏</span>
+          <span class="sheet-fav-badge" id="sheet-fav-badge">0</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- 抽屜底部操作列 -->
+    <div class="filter-sheet-footer">
+      <button class="sheet-reset-btn" id="sheet-reset-btn">
+        <span class="material-symbols-outlined">restart_alt</span>
+        重置篩選
+      </button>
+      <button class="sheet-apply-btn" id="sheet-apply-btn">
+        <span class="material-symbols-outlined">check</span>
+        套用篩選
+      </button>
+    </div>
+  </div>
+
+  <!-- 手機版浮動新增按鈕 (FAB) -->
+  <button class="fab" id="mobile-fab" aria-label="新增立面素材">
+    <span class="material-symbols-outlined">add</span>
+  </button>
+
+  <!-- 手機版底部導覽列 (Bottom Navigation Bar) -->
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+    <button class="mobile-nav-item active" data-view="local-library" id="mnav-local">
+      <span class="material-symbols-outlined mobile-nav-icon">grid_view</span>
+      <span class="mobile-nav-label">素材庫</span>
+    </button>
+    <button class="mobile-nav-item" data-view="pinterest-boards" id="mnav-pinterest">
+      <svg class="mobile-nav-pinterest-icon" viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+        <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.966 1.406-5.966s-.359-.72-.359-1.781c0-1.663.967-2.907 2.167-2.907 1.02 0 1.513.769 1.513 1.689 0 1.029-.656 2.568-.994 3.995-.28 1.197.6 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C11.12 23.949 11.558 24 12.017 24 18.639 24 24 18.63 24 11.987 24 5.367 18.639 0 12.017 0z"/>
+      </svg>
+      <span class="mobile-nav-label">靈感庫</span>
+    </button>
+    <button class="mobile-nav-item" data-view="global-search" id="mnav-global">
+      <span class="material-symbols-outlined mobile-nav-icon">language</span>
+      <span class="mobile-nav-label">大師案例</span>
+    </button>
+  </nav>
+
+  <!-- Custom JavaScript -->
+  <script src="app.js?v=5.0"></script>
+</body>
+</html>

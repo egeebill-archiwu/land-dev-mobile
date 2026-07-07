@@ -1,0 +1,112 @@
+StartLine: 5516
+EndLine: 5516
+=== TARGET ===
+function copyLegalContent() {
+    const resultText = document.getElementById('ai-reg-result-text');
+    if (!resultText || resultText.classList.contains('hidden') || !resultText.innerText.trim()) {
+        alert('請先點擊「AI 分析法規」，待分析完成後再複製。');
+        return;
+    }
+    const content = resultText.innerText;
+    navigator.clipboard.writeText(content).then(() => {
+        alert('已複製 AI 法規分析內容至剪貼板！');
+    }).catch(() => {
+        try {
+            const el = document.createElement('textarea');
+            el.value = content;
+            el.style.position = 'fixed';
+            el.style.opacity = '0';
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            alert('已複製');
+        } catch(e2) {
+            alert('複製失敗，請手動選取內容後複製。');
+        }
+    });
+}
+
+function importLegalToSlides() {
+    const resultText = document.getElementById('ai-reg-result-text');
+    if (!resultText || resultText.classList.contains('hidden') || !resultText.innerText.trim()) {
+        alert('請先點擊「AI 分析法規」，待分析完成後再匯入簡報。');
+        return;
+    }
+    const content = resultText.innerText;
+    // 合併 / 附加法規分析至 AI 報告文字
+    importedAIReportText = (importedAIReportText ? importedAIReportText + '\n\n' : '') +
+        '【AI 法規智慧適法性分析】\n' + content;
+
+    const btn = document.getElementById('btn-import-legal-slides');
+    if (btn) {
+        const origHtml = btn.innerHTML;
+        const origCls  = btn.className;
+        btn.innerHTML = '✅ 已匯入簡報';
+        btn.className = origCls
+            .replace('text-sky-200',    'text-emerald-200')
+            .replace('bg-sky-600/30',   'bg-emerald-600/30')
+            .replace('border-sky-500/40','border-emerald-500/40');
+        setTimeout(() => {
+            btn.innerHTML = origHtml;
+            btn.className = origCls;
+        }, 3000);
+    }
+    alert('🎉 已成功將 AI 法規分析報告匯入全案簡報！\n在您點擊「匯出 15 頁全案簡報 PPTX」時，系統將自動將法規分析內容融入簡報的法規診斷章節。');
+}
+=== REPLACEMENT ===
+function copyLegalContent() {
+    // 對案 inline 區塊或 modal
+    const inlineTxt  = document.getElementById('reg-ai-inline-text');
+    const modalTxt   = document.getElementById('ai-reg-result-text');
+    const content    = (inlineTxt && !inlineTxt.classList.contains('hidden') && inlineTxt.innerText.trim())
+                     ? inlineTxt.innerText
+                     : (modalTxt && modalTxt.innerText.trim() ? modalTxt.innerText : '');
+    if (!content) {
+        alert('請先點擊「AI 分析法規」，待分析完成後再複製。');
+        return;
+    }
+    navigator.clipboard.writeText(content).then(() => {
+        alert('已複製 AI 法規分析內容至剪貼板！');
+    }).catch(() => {
+        try {
+            const el = document.createElement('textarea');
+            el.value = content;
+            el.style.cssText = 'position:fixed;opacity:0';
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            alert('已複製');
+        } catch(e2) {
+            alert('複製失敗，請手動選取內容後複製。');
+        }
+    });
+}
+
+function importLegalToSlides() {
+    const inlineTxt  = document.getElementById('reg-ai-inline-text');
+    const modalTxt   = document.getElementById('ai-reg-result-text');
+    const content    = (inlineTxt && !inlineTxt.classList.contains('hidden') && inlineTxt.innerText.trim())
+                     ? inlineTxt.innerText
+                     : (modalTxt && modalTxt.innerText.trim() ? modalTxt.innerText : '');
+    if (!content) {
+        alert('請先點擊「AI 分析法規」，待分析完成後再匯入簡報。');
+        return;
+    }
+    importedAIReportText = (importedAIReportText ? importedAIReportText + '\n\n' : '') +
+        '【AI 法規智慧適法性分析】\n' + content;
+
+    const btn = document.getElementById('btn-import-legal-slides');
+    if (btn) {
+        const origHtml = btn.innerHTML;
+        const origCls  = btn.className;
+        btn.innerHTML = '✅ 已匯入簡報';
+        btn.className = origCls
+            .replace('text-sky-300',     'text-emerald-300')
+            .replace('bg-sky-600/25',    'bg-emerald-600/25')
+            .replace('border-sky-500/40','border-emerald-500/40');
+        setTimeout(() => { btn.innerHTML = origHtml; btn.className = origCls; }, 3000);
+    }
+    alert('🎉 已成功將 AI 法規分析報告匯入全案簡報！\n在您點擊「匯出 15 頁全案簡報 PPTX」時，系統將自動將法規分析內容融入簡報的法規診斷章節。');
+}
