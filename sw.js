@@ -1,5 +1,8 @@
-const CACHE_NAME = 'land-dev-v1';
-const ASSETS = [
+const CACHE_NAME = 'land-dev-v2';
+
+// 只預先快取必要的本地核心檔案（不包含大型 CDN 函式庫）
+// CDN 函式庫使用「網路優先，快取備用」策略，避免安裝時等待大量外部下載
+const LOCAL_ASSETS = [
   './index.html',
   './manifest.json',
   './src/app.js',
@@ -11,82 +14,80 @@ const ASSETS = [
   './facade-finder/index.html',
   './facade-finder/style.css',
   './facade-finder/app.js',
-  'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-  'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
-  'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
-  'https://cdn-icons-png.flaticon.com/512/602/602182.png'
 ];
 
-// 安裝事件 (Install Event) - 預先快取靜態資源
+// 安裝事件 - 只快取本地核心檔案，立即完成不等 CDN
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log('[Service Worker] Caching app shell');
-      return cache.addAll(ASSETS);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(LOCAL_ASSETS))
+      .then(() => self.skipWaiting())
+      .catch(err => {
+        console.warn('[SW] Install cache failed, continuing anyway:', err);
+        return self.skipWaiting();
+      })
   );
 });
 
-// 激活事件 (Activate Event) - 清理舊快取
+// 激活事件 - 清理舊版快取
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            console.log('[Service Worker] Removing old cache', key);
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
 });
 
-// 攔截請求事件 (Fetch Event) - 採用 Stale-While-Revalidate 策略
+// 請求攔截策略
 self.addEventListener('fetch', event => {
-  // 排除 POST 請求 (例如 API generate-pdf)，因為 POST 無法快取
-  if (event.request.method !== 'GET') {
-    return;
+  // 排除 POST / 非 GET
+  if (event.request.method !== 'GET') return;
+
+  const url = event.request.url;
+
+  // 地圖瓦片 / Google API：永遠走網路，不快取（避免污染快取空間）
+  if (
+    url.includes('tile.openstreetmap.org') ||
+    url.includes('googleapis.com') ||
+    url.includes('nominatim.openstreetmap.org')
+  ) {
+    return; // 讓瀏覽器直接處理
   }
 
-  // 排除外部 API（例如 Google Maps API、地圖瓦片伺服器），只使用網路加載
-  if (event.request.url.includes('googleapis.com') || event.request.url.includes('google-chrome') || event.request.url.includes('tile.openstreetmap.org')) {
+  // CDN 大型函式庫（Tailwind, Chart.js, Leaflet, xlsx 等）：
+  // 網路優先，失敗才用快取，第一次成功後自動存入快取
+  if (
+    url.includes('cdn.tailwindcss.com') ||
+    url.includes('cdn.jsdelivr.net') ||
+    url.includes('unpkg.com') ||
+    url.includes('flaticon.com')
+  ) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request)
+        .then(response => {
+          if (response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }
 
+  // 本地核心資源：快取優先（Stale-While-Revalidate），回應最快
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      if (cachedResponse) {
-        // 發起背景更新
-        fetch(event.request).then(networkResponse => {
-          if (networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse));
-          }
-        }).catch(err => console.log('[Service Worker] Background fetch failed', err));
-        
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then(networkResponse => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+    caches.match(event.request).then(cached => {
+      const networkFetch = fetch(event.request).then(response => {
+        if (response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
+        return response;
+      }).catch(() => null);
 
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseToCache);
-        });
-
-        return networkResponse;
-      });
+      return cached || networkFetch;
     })
   );
 });

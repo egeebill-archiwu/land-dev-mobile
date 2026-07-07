@@ -68,8 +68,8 @@ body::before {
 }
 #app-nav {
     flex-shrink: 0; z-index: 50;
-    /* iPhone home indicator: ensure labels are fully visible above it */
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+    /* iPhone home indicator: ensure all nav labels are fully visible */
+    padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 4px), 24px);
 }
 
 /* Glass */
@@ -98,7 +98,7 @@ input[type=range] { accent-color: #3b82f6; }
 .lbl-purple { color: #c084fc; }
 
 /* Section title */
-.sec-title { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; margin-bottom: 1rem; }
+.sec-title { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; margin-bottom: 1rem; white-space: nowrap; flex-shrink: 0; }
 .sec-bar   { width: 4px; height: 1.1rem; border-radius: 2px; margin-right: 0.6rem; flex-shrink: 0; }
 
 /* Group title */
