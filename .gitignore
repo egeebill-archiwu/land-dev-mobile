@@ -19,6 +19,7 @@ PPT/
 *.pdf
 *.mp4
 風格/開場動畫/*.mp4
+!風格/開場動畫/第二版.mp4
 
 # OS generated files
 .DS_Store
