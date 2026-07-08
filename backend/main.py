@@ -190,6 +190,8 @@ async def generate_pdf(payload: BriefPayload):
             chrome_path,
             "--headless",
             "--disable-gpu",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
             "--print-to-pdf-no-header",
             "--no-margins",
             f"--print-to-pdf={temp_pdf_path}",
