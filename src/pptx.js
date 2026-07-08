@@ -462,20 +462,24 @@ async function triggerPDFGeneration() {
         const isLocalhost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
         const isFileProtocol = window.location.protocol === 'file:';
         const hasLocalBackend = isLocalhost || isFileProtocol;
+        const customBackend = localStorage.getItem('backend_api_url');
 
-        if (!hasLocalBackend) {
+        let host = '';
+        if (customBackend) {
+            host = customBackend.trim().replace(/\/$/, ''); // Remove trailing slash
+        } else if (hasLocalBackend) {
+            host = isFileProtocol ? 'http://127.0.0.1:8000' : window.location.origin;
+        } else {
             // Running as a PWA / GitHub Pages — no local backend available
             throw new Error(
-                '此功能需要在您的電腦上啟動後台服務才能使用。\n\n' +
-                '📋 操作說明：\n' +
-                '請回到您的電腦，在專案資料夾中執行：\n' +
-                'python -m uvicorn backend.main:app\n\n' +
-                '啟動後請用電腦版瀏覽器開啟系統，即可正常匯出 PDF 簡報。\n\n' +
-                '（手機版 PWA 目前不支援 PDF 匯出功能）'
+                '此功能需要在您的電腦上啟動後台服務，或是設定雲端簡報後台網址。\n\n' +
+                '📋 解決方案：\n' +
+                '1. 【電腦上使用】：請在專案資料夾中執行：\n' +
+                '   python -m uvicorn backend.main:app\n' +
+                '   啟動後以電腦瀏覽器開啟即可正常下載。\n\n' +
+                '2. 【手機 App 上使用】：請至 Render 部署後台，並在「AI 分析 ➔ 簡報後台網址」填入您的雲端 API 連結。'
             );
         }
-
-        const host = isFileProtocol ? 'http://127.0.0.1:8000' : window.location.origin;
         const response = await fetch(`${host}/api/generate-pdf`, {
             method: 'POST',
             headers: {

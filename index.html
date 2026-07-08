@@ -1546,6 +1546,27 @@
             </div>
         </div>
 
+        <!-- 雲端簡報後台設定 (SaaS) -->
+        <div class="glass p-4 shadow-xl border-t border-blue-500/20">
+            <div class="flex justify-between items-center mb-2.5">
+                <h3 class="text-sm font-black text-blue-300">🌐 雲端簡報後台設定 (SaaS)</h3>
+                <span id="backend-url-status" class="pill bg-slate-700/50 text-slate-400 border border-slate-600/40 text-[9px] px-2 py-0.5">本機預設</span>
+            </div>
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="backend-url-input"
+                       placeholder="貼上您的 Render 雲端後台網址…"
+                       class="inp flex-1 text-sm"
+                       oninput="updateBackendUrlStatus()">
+                <button onclick="saveBackendUrl()" class="tap px-4 py-2 bg-blue-600 text-white text-xs font-black rounded-xl flex-shrink-0">儲存</button>
+            </div>
+            <div class="p-2.5 bg-slate-800/50 rounded-xl border border-slate-700/30">
+                <p class="text-[10px] text-slate-400 leading-relaxed">
+                    💡 手機 App 需要連結雲端後台才能下載簡報。若為空，本機環境預設使用 localhost:8000。<br>
+                    <span class="text-blue-400 font-bold">格式範例：https://your-app.onrender.com</span>
+                </p>
+            </div>
+        </div>
+
         <div class="glass p-5 shadow-xl space-y-4">
             <h2 class="sec-title mb-1"><span class="sec-bar bg-purple-500"></span><span class="text-purple-300">AI 顧問服務</span></h2>
 

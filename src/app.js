@@ -2793,6 +2793,59 @@ function updateApiKeyStatus() {
     }
 }
 
+function updateBackendUrlStatus() {
+    const statusEl = document.getElementById('backend-url-status');
+    const input = document.getElementById('backend-url-input');
+    const val = input ? input.value.trim() : '';
+    
+    let badgeText = '本機預設';
+    let badgeClass = 'pill bg-slate-700/50 text-slate-400 border border-slate-600/40';
+    
+    let currentUrl = val;
+    if (!currentUrl) {
+        try {
+            currentUrl = localStorage.getItem('backend_api_url') || '';
+        } catch (e) {}
+    }
+    
+    if (currentUrl) {
+        badgeText = '✓ 雲端模式';
+        badgeClass = 'pill bg-blue-900/50 text-blue-300 border border-blue-700/40';
+    }
+    
+    if (statusEl) {
+        statusEl.innerText = badgeText;
+        statusEl.className = badgeClass;
+    }
+}
+
+function saveBackendUrl() {
+    const input = document.getElementById('backend-url-input');
+    const val = input ? input.value.trim() : '';
+    try {
+        if (val) {
+            localStorage.setItem('backend_api_url', val);
+        } else {
+            localStorage.removeItem('backend_api_url');
+        }
+    } catch (e) {
+        console.warn('Failed to save backend_api_url to localStorage:', e);
+    }
+    
+    const btn = document.querySelector('[onclick="saveBackendUrl()"]');
+    if (btn) {
+        const origText = btn.innerText;
+        btn.innerText = val ? '✓ 已儲存' : '✓ 已清除';
+        btn.className = 'tap px-4 py-2 bg-emerald-600 text-white text-xs font-black rounded-xl flex-shrink-0';
+        setTimeout(() => {
+            btn.innerText = origText;
+            btn.className = 'tap px-4 py-2 bg-blue-600 text-white text-xs font-black rounded-xl flex-shrink-0';
+        }, 2000);
+    }
+    
+    updateBackendUrlStatus();
+}
+
 function openCadastralModal() {
     const modal = document.getElementById('cadastral-modal');
     if (!modal) return;
@@ -4481,7 +4534,16 @@ window.onload = () => {
         }
     } catch (e) {}
 
+    try {
+        const savedUrl = localStorage.getItem('backend_api_url');
+        if (savedUrl) {
+            const urlInput = document.getElementById('backend-url-input');
+            if (urlInput) urlInput.value = savedUrl;
+        }
+    } catch (e) {}
+
     updateApiKeyStatus();
+    updateBackendUrlStatus();
     updateApiModelSelect();
     updateMQLocation();
     updateLocationBadge(); // 初始化地址徽章

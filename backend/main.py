@@ -67,12 +67,23 @@ class BriefPayload(BaseModel):
 def get_chrome_executable():
     paths = [
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")
+        r"rC:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium"
     ]
     for p in paths:
         if os.path.exists(p):
             return p
+            
+    import shutil
+    for cmd in ["google-chrome", "google-chrome-stable", "chromium-browser", "chromium", "chrome"]:
+        path = shutil.which(cmd)
+        if path:
+            return path
+            
     return None
 
 def fetch_ai_insights(payload: BriefPayload, api_key: str) -> dict:
